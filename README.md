@@ -99,8 +99,8 @@ You should get back JSON that starts with `{"ocs":{"meta":{"status":"ok"`.
 ### 2. Configure
 
 ```bash
-git clone https://github.com/liam-burnett-au/nas-status.git
-cd nas-status
+git clone https://github.com/Liam-burnett-AU/Nas-Status.git
+cd Nas-Status
 cp .env.example .env
 # edit .env: set NEXTCLOUD_URL, NEXTCLOUD_TOKEN and TIMEZONE
 ```
