@@ -1,0 +1,19 @@
+{
+  "name": "nas-status",
+  "version": "1.0.0",
+  "description": "A self-hosted status page for Nextcloud, powered by the serverinfo external monitoring API.",
+  "main": "server.js",
+  "type": "commonjs",
+  "private": true,
+  "license": "MIT",
+  "author": "Liam Burnett",
+  "engines": {
+    "node": ">=18.17"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "demo": "node server.js --demo",
+    "test": "node --test test/*.test.js",
+    "build:preview": "node scripts/build-preview.js"
+  }
+}

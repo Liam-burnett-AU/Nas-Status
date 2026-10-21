@@ -1,0 +1,14 @@
+services:
+  nas-status:
+    build: .
+    image: nas-status:latest
+    container_name: nas-status
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "8080:8080"
+    volumes:
+      - nas-status-data:/app/data
+
+volumes:
+  nas-status-data:

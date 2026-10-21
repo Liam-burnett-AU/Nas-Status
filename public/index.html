@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="en-AU" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#07071a">
+  <meta name="description" content="Live health, performance and uptime for our Nextcloud server.">
+  <title>NAS Status</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="css/styles.css">
+  <script src="js/format.js" defer></script>
+  <script src="js/charts.js" defer></script>
+  <script src="js/app.js" defer></script>
+</head>
+<body>
+  <svg class="sprite" aria-hidden="true" focusable="false">
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 4l9 16H3z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M12 10v4.5M12 17.2v.3" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="M7 7l10 10M17 7L7 17" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></symbol>
+    <symbol id="i-wrench" viewBox="0 0 24 24"><path d="M14.7 6.3a4 4 0 0 0 5 5L13 18a2.1 2.1 0 0 1-3-3l6.7-6.7a4 4 0 0 0-2-2z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M7 21l-3-3 5-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M9.6 9.5a2.5 2.5 0 1 1 3.4 2.3c-.7.3-1 .8-1 1.5v.4M12 16.8v.3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+    <symbol id="i-cloud" viewBox="0 0 24 24"><path d="M7 18.5h10.5a4 4 0 0 0 .6-7.95A6 6 0 0 0 6.6 9.1 4.75 4.75 0 0 0 7 18.5z" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/></symbol>
+    <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 11a8 8 0 0 0-14.5-4.5L4 8M4 4v4h4M4 13a8 8 0 0 0 14.5 4.5L20 16M20 20v-4h-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-table" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="1.9"/><path d="M3.5 10h17M3.5 14.5h17M9.5 10v9" stroke="currentColor" stroke-width="1.9"/></symbol>
+    <symbol id="i-chart" viewBox="0 0 24 24"><path d="M4 19h16M6 15l4-4 3 3 5-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.9"/><path d="M12 7.5V12l3 2" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></symbol>
+    <symbol id="i-cpu" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="1.9"/><rect x="9.5" y="9.5" width="5" height="5" rx="1" fill="currentColor"/><path d="M9 3v3M15 3v3M9 18v3M15 18v3M3 9h3M3 15h3M18 9h3M18 15h3" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></symbol>
+    <symbol id="i-memory" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="1.9"/><path d="M7 10.5v3M11 10.5v3M15 10.5v3M6 17v2.5M18 17v2.5" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></symbol>
+    <symbol id="i-disk" viewBox="0 0 24 24"><ellipse cx="12" cy="6.5" rx="7.5" ry="3" fill="none" stroke="currentColor" stroke-width="1.9"/><path d="M4.5 6.5v11c0 1.7 3.4 3 7.5 3s7.5-1.3 7.5-3v-11M4.5 12c0 1.7 3.4 3 7.5 3s7.5-1.3 7.5-3" fill="none" stroke="currentColor" stroke-width="1.9"/></symbol>
+    <symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8.5" r="3.5" fill="none" stroke="currentColor" stroke-width="1.9"/><path d="M2.5 19.5a6.5 6.5 0 0 1 13 0M16 5.2a3.5 3.5 0 0 1 0 6.6M18.5 14a6.5 6.5 0 0 1 3 5.5" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></symbol>
+    <symbol id="i-files" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/><path d="M14 3v5h5M8.5 13h7M8.5 17h5" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></symbol>
+    <symbol id="i-pulse" viewBox="0 0 24 24"><path d="M3 12h4l2.5-6 5 12 2.5-6h4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-thermo" viewBox="0 0 24 24"><path d="M10 13.5V5a2 2 0 0 1 4 0v8.5a4 4 0 1 1-4 0z" fill="none" stroke="currentColor" stroke-width="1.9"/><path d="M12 9v7" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></symbol>
+    <symbol id="i-chevron" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></symbol>
+  </svg>
+
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <header class="topbar">
+    <div class="container topbar-inner">
+      <a class="brand" href="./" aria-label="Status home">
+        <span class="brand-mark" aria-hidden="true"><svg><use href="#i-cloud"/></svg></span>
+        <span class="brand-text">
+          <span class="brand-title" data-bind="site-title">NAS Status</span>
+          <span class="brand-sub" data-bind="product">Nextcloud</span>
+        </span>
+      </a>
+      <div class="topbar-actions">
+        <div class="live" data-bind="live" aria-live="polite">
+          <span class="live-dot" aria-hidden="true"></span>
+          <span class="live-text">Connecting…</span>
+        </div>
+        <button class="icon-btn refresh" type="button" data-action="refresh" aria-label="Refresh now" title="Refresh now">
+          <svg class="ring" viewBox="0 0 36 36" aria-hidden="true">
+            <circle class="ring-track" cx="18" cy="18" r="16"/>
+            <circle class="ring-fill" cx="18" cy="18" r="16"/>
+          </svg>
+          <svg class="icon"><use href="#i-refresh"/></svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main id="main" class="container" tabindex="-1">
+    <div class="banners" data-bind="banners" aria-live="polite"></div>
+
+    <section class="hero card" data-bind="hero" aria-labelledby="hero-title">
+      <div class="hero-main">
+        <div class="orb" data-bind="orb" aria-hidden="true">
+          <span class="orb-ring"></span>
+          <span class="orb-core"><svg><use href="#i-help"/></svg></span>
+        </div>
+        <div class="hero-copy">
+          <p class="eyebrow">Current status</p>
+          <h1 id="hero-title" data-bind="overall-message">Loading status…</h1>
+          <p class="hero-sub" data-bind="overall-sub">Fetching the latest check from the monitor.</p>
+        </div>
+      </div>
+      <div class="hero-figure">
+        <p class="eyebrow">Availability · 30 days</p>
+        <p class="hero-number" data-bind="availability-30d">—</p>
+        <dl class="hero-mini" data-bind="availability-mini"></dl>
+      </div>
+    </section>
+
+    <section class="kpis" aria-label="Key metrics" data-bind="kpis"></section>
+
+    <section class="card section" aria-labelledby="components-title">
+      <div class="section-head">
+        <div>
+          <h2 id="components-title">Components</h2>
+          <p class="section-sub">Daily status for the past <span class="only-wide">90</span><span class="only-narrow">30</span> days. Hover or use the arrow keys for details.</p>
+        </div>
+        <ul class="legend legend-status" data-bind="status-legend"></ul>
+      </div>
+      <div class="components" data-bind="components"></div>
+    </section>
+
+    <section class="section" aria-labelledby="performance-title">
+      <div class="section-head section-head-bare">
+        <div>
+          <h2 id="performance-title">Performance</h2>
+          <p class="section-sub" data-bind="perf-sub">Averaged per interval.</p>
+        </div>
+        <div class="segmented" role="radiogroup" aria-label="Time range" data-bind="range">
+          <button type="button" role="radio" data-range="1h">1 h</button>
+          <button type="button" role="radio" data-range="6h">6 h</button>
+          <button type="button" role="radio" data-range="24h">24 h</button>
+          <button type="button" role="radio" data-range="7d">7 d</button>
+        </div>
+      </div>
+      <div class="chart-grid">
+        <article class="card chart-card chart-wide" data-chart="response"></article>
+        <article class="card chart-card" data-chart="resources"></article>
+        <article class="card chart-card" data-chart="storage"></article>
+        <article class="card chart-card" data-chart="users"></article>
+        <article class="card chart-card" data-chart="api"></article>
+      </div>
+    </section>
+
+    <section class="card section" aria-labelledby="resources-title">
+      <div class="section-head">
+        <div>
+          <h2 id="resources-title">Resources right now</h2>
+          <p class="section-sub" data-bind="resources-sub">From the latest serverinfo report.</p>
+        </div>
+      </div>
+      <div class="gauges" data-bind="gauges"></div>
+      <div class="thermal" data-bind="thermal"></div>
+    </section>
+
+    <div class="detail-grid">
+      <section class="card section" aria-labelledby="system-title" data-bind="system-card">
+        <div class="section-head"><h2 id="system-title">System</h2></div>
+        <div data-bind="system"></div>
+      </section>
+      <section class="card section" aria-labelledby="usage-title">
+        <div class="section-head"><h2 id="usage-title">Usage &amp; storage</h2></div>
+        <div data-bind="usage"></div>
+      </section>
+      <section class="card section" aria-labelledby="shares-title">
+        <div class="section-head"><h2 id="shares-title">Shares</h2></div>
+        <div data-bind="shares"></div>
+      </section>
+      <section class="card section" aria-labelledby="active-title">
+        <div class="section-head"><h2 id="active-title">Active users</h2></div>
+        <div data-bind="active-users"></div>
+      </section>
+      <section class="card section" aria-labelledby="caching-title" data-bind="caching-card">
+        <div class="section-head"><h2 id="caching-title">PHP &amp; caching</h2></div>
+        <div data-bind="caching"></div>
+      </section>
+      <section class="card section" aria-labelledby="apps-title" data-bind="apps-card">
+        <div class="section-head"><h2 id="apps-title">Apps &amp; updates</h2></div>
+        <div data-bind="apps"></div>
+      </section>
+    </div>
+
+    <section class="card section" aria-labelledby="volumes-title" data-bind="volumes-card" hidden>
+      <div class="section-head">
+        <div>
+          <h2 id="volumes-title">Volumes</h2>
+          <p class="section-sub">Mounted file systems reported by the host.</p>
+        </div>
+      </div>
+      <div data-bind="volumes"></div>
+    </section>
+
+    <section class="card section" aria-labelledby="incidents-title">
+      <div class="section-head">
+        <div>
+          <h2 id="incidents-title">Incident history</h2>
+          <p class="section-sub">Detected automatically from consecutive failed or degraded checks.</p>
+        </div>
+      </div>
+      <div data-bind="incidents"></div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="container footer-inner">
+      <p data-bind="footer-meta">Powered by the Nextcloud serverinfo monitoring API.</p>
+      <p class="footer-links"><a href="api/status" data-bind="api-link">JSON API</a><span aria-hidden="true">·</span><span>LB Dev</span></p>
+    </div>
+  </footer>
+</body>
+</html>
