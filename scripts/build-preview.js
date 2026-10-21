@@ -6,7 +6,10 @@
  * CSS/JS and a frozen snapshot of demo data. Handy for sharing what the
  * status page looks like without running the server.
  *
- *   node scripts/build-preview.js [--tz Australia/Brisbane] [--out dist/preview.html]
+ *   node scripts/build-preview.js [--tz Australia/Brisbane] [--out dist/preview.html] [--fragment]
+ *
+ * --fragment drops the <!doctype>/<html>/<head>/<body> wrapper (and the charset and
+ * viewport metas) for hosts that supply their own document skeleton.
  */
 
 const fs = require('node:fs');
@@ -61,6 +64,22 @@ async function main() {
   replaceOnce('<script src="js/charts.js" defer></script>', '');
   replaceOnce('<script src="js/app.js" defer></script>', '');
   replaceOnce('</body>', `<script>window.__NAS_STATUS_STATIC__ = ${json};</script>\n${inlineScript('js/format.js')}\n${inlineScript('js/charts.js')}\n${inlineScript('js/app.js')}\n</body>`);
+
+  if (process.argv.includes('--fragment')) {
+    html = html
+      .replace(/<!doctype html>\s*/i, '')
+      .replace(/<html[^>]*>\s*/i, '')
+      .replace(/<\/html>\s*/i, '')
+      .replace(/<head>\s*/i, '')
+      .replace(/<\/head>\s*/i, '')
+      .replace(/<body>\s*/i, '')
+      .replace(/<\/body>\s*/i, '')
+      .replace(/\s*<meta charset="utf-8">/i, '')
+      .replace(/\s*<meta name="viewport"[^>]*>/i, '');
+    // Title first, so hosts that only scan the start of the file find it.
+    const title = /<title>[^<]*<\/title>/.exec(html)[0];
+    html = `${title}\n<meta name="claude:viewport-fit-sides" content="cover">\n${html.replace(title, '').trimStart()}`;
+  }
 
   fs.mkdirSync(path.dirname(out), { recursive: true });
   fs.writeFileSync(out, html);

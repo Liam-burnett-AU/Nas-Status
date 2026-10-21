@@ -128,7 +128,7 @@ npm run demo        # serves generated data on http://localhost:8080
 You can also build a single, self-contained HTML snapshot of the demo:
 
 ```bash
-npm run build:preview   # writes dist/preview.html
+npm run build:preview   # writes dist/preview.html (add -- --fragment for hosts that supply their own <html> wrapper)
 ```
 
 ## Configuration

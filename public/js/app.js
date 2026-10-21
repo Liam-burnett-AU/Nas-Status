@@ -849,7 +849,10 @@
     const every = F.duration(s.monitor.pollIntervalMs);
     bind('footer-meta').textContent = `Checks every ${every} · Times shown in ${F.zoneName()} (${s.site.timeZone}) · Powered by the ${s.site.productName} serverinfo API`;
     const link = bind('api-link');
-    if (STATIC) link.removeAttribute('href');
+    if (STATIC) {
+      link.removeAttribute('href');
+      document.querySelector('.brand').setAttribute('href', '#main');
+    }
   }
 
   // ------------------------------------------------------------------ ticks
