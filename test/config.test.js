@@ -2,9 +2,9 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { loadConfig } = require('../lib/config');
+const { buildConfig } = require('../lib/config');
 
-const load = (env) => loadConfig(env, { dotenvPath: null });
+const load = (env) => buildConfig(env);
 
 test('requires NEXTCLOUD_URL unless in demo mode', () => {
   assert.throws(() => load({}), /NEXTCLOUD_URL is required/);
@@ -25,6 +25,7 @@ test('validates numbers, booleans, time zones and pairs', () => {
   assert.throws(() => load({ ...base, SHOW_SERVER_DETAILS: 'maybe' }), /true or false/);
   assert.throws(() => load({ ...base, TIMEZONE: 'Mars/Olympus' }), /time zone/);
   assert.throws(() => load({ ...base, NEXTCLOUD_USER: 'admin' }), /together/);
+  assert.throws(() => load({ ...base, CF_ACCESS_CLIENT_ID: 'id.access' }), /together/);
   assert.throws(() => load({ ...base, DISK_WARN_PERCENT: '96', DISK_CRITICAL_PERCENT: '90' }), /DISK_CRITICAL_PERCENT/);
   const c = load({ ...base, POLL_INTERVAL_SECONDS: '30', TIMEZONE: 'Australia/Brisbane', SHOW_SERVER_DETAILS: 'no' });
   assert.equal(c.pollIntervalMs, 30_000);

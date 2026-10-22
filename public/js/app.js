@@ -8,7 +8,11 @@
 
   /** When present (static preview build), data comes from here instead of the API. */
   const STATIC = window.__NAS_STATUS_STATIC__ || null;
-  const REFRESH_MS = 15_000;
+  // Refresh just after the monitor's next check lands, within these bounds.
+  const REFRESH_MIN_MS = 10_000;
+  const REFRESH_MAX_MS = 60_000;
+  const REFRESH_FALLBACK_MS = 15_000;
+  const AFTER_CHECK_MS = 3_000;
   const GIB = 1024 ** 3;
   const RANGES = ['1h', '6h', '24h', '7d'];
   const RANGE_LABEL = { '1h': 'last hour', '6h': 'last 6 hours', '24h': 'last 24 hours', '7d': 'last 7 days' };
@@ -65,6 +69,8 @@
     lastFetchOk: null,
     timer: null,
     nextRefreshAt: 0,
+    refreshDelay: REFRESH_FALLBACK_MS,
+    historyFor: null, // lastCheckAt the loaded history belongs to
     tableView: {},
     charts: {},
     sparks: {},
@@ -82,7 +88,14 @@
       return STATIC.history[range];
     }
     const res = await fetch(url, { cache: 'no-store', headers: { Accept: 'application/json' } });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) {
+      let detail = `HTTP ${res.status}`;
+      try {
+        const body = await res.json();
+        if (body && typeof body.error === 'string') detail = body.error;
+      } catch { /* not JSON */ }
+      throw new Error(detail);
+    }
     return res.json();
   }
 
@@ -90,14 +103,19 @@
     clearTimeout(state.timer);
     setSpinning(true);
     try {
-      const [status, history, trend] = await Promise.all([
-        getJson('api/status'),
-        getJson(`api/history?range=${state.range}`),
-        state.range === '24h' ? Promise.resolve(null) : getJson('api/history?range=24h'),
-      ]);
+      const status = await getJson('api/status');
+      // Chart history only changes when a new check has run, so skip it otherwise.
+      const checkedAt = status.monitor.lastCheckAt;
+      if (!state.history || state.historyFor !== checkedAt) {
+        const [history, trend] = await Promise.all([
+          getJson(`api/history?range=${state.range}`),
+          state.range === '24h' ? Promise.resolve(null) : getJson('api/history?range=24h'),
+        ]);
+        state.history = history;
+        state.trend = trend || history;
+        state.historyFor = checkedAt;
+      }
       state.status = status;
-      state.history = history;
-      state.trend = trend || history;
       state.error = null;
       state.lastFetchOk = Date.now();
       render();
@@ -128,8 +146,14 @@
   function schedule() {
     clearTimeout(state.timer);
     if (STATIC || document.hidden) return;
-    state.nextRefreshAt = Date.now() + REFRESH_MS;
-    state.timer = setTimeout(refresh, REFRESH_MS);
+    const next = state.status?.monitor?.nextCheckAt;
+    let delay = REFRESH_FALLBACK_MS;
+    if (!state.error && Number.isFinite(next)) {
+      delay = Math.min(REFRESH_MAX_MS, Math.max(REFRESH_MIN_MS, next + AFTER_CHECK_MS - Date.now()));
+    }
+    state.refreshDelay = delay;
+    state.nextRefreshAt = Date.now() + delay;
+    state.timer = setTimeout(refresh, delay);
   }
 
   function setSpinning(on) {
@@ -196,7 +220,10 @@
     const out = [];
     if (state.error) {
       const since = state.lastFetchOk ? ` Showing data from ${esc(F.time(state.lastFetchOk))}.` : '';
-      out.push(banner('critical', 'x', `<strong>Can't reach the status server.</strong>${since} Retrying automatically.`));
+      // A TypeError from fetch() means the network failed; anything else carries the server's own explanation.
+      const detail = state.error instanceof TypeError || !state.error.message ? '' : ` ${esc(state.error.message)}`;
+      const title = detail ? 'The status server reported a problem.' : "Can't reach the status server.";
+      out.push(banner('critical', 'x', `<strong>${title}</strong>${detail}${since} Retrying automatically.`));
     }
     if (s) {
       if (STATIC || s.monitor.demo) {
@@ -860,8 +887,9 @@
     if (state.status) renderLive();
     const ring = $('.ring-fill');
     if (ring) {
-      const remaining = STATIC || document.hidden ? REFRESH_MS : Math.max(0, state.nextRefreshAt - Date.now());
-      ring.style.strokeDashoffset = String(100.53 * (remaining / REFRESH_MS));
+      const total = state.refreshDelay || REFRESH_FALLBACK_MS;
+      const remaining = STATIC || document.hidden ? total : Math.max(0, state.nextRefreshAt - Date.now());
+      ring.style.strokeDashoffset = String(100.53 * Math.min(1, remaining / total));
     }
   }
 

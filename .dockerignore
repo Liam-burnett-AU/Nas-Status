@@ -6,3 +6,8 @@ docs
 test
 .env
 *.log
+src
+wrangler.jsonc
+.dev.vars
+.dev.vars.example
+.wrangler

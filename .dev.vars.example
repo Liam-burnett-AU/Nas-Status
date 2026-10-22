@@ -1,0 +1,7 @@
+# Secrets for `npm run worker:dev` (local only). Copy to .dev.vars.
+# In production set them with: npx wrangler secret put NEXTCLOUD_TOKEN
+NEXTCLOUD_TOKEN=
+# NEXTCLOUD_USER=admin
+# NEXTCLOUD_APP_PASSWORD=
+# CF_ACCESS_CLIENT_ID=
+# CF_ACCESS_CLIENT_SECRET=

@@ -5,9 +5,9 @@ const assert = require('node:assert/strict');
 const { evaluate, STATUS } = require('../lib/evaluate');
 const { normaliseServerInfo, normaliseStatusPhp } = require('../lib/normalise');
 const { serverInfoPayload } = require('./helpers/mock-nextcloud');
-const { loadConfig } = require('../lib/config');
+const { buildConfig } = require('../lib/config');
 
-const T = loadConfig({ NEXTCLOUD_URL: 'https://cloud.example.com' }, { dotenvPath: null }).thresholds;
+const T = buildConfig({ NEXTCLOUD_URL: 'https://cloud.example.com' }).thresholds;
 const okWeb = (extra = {}) => ({ ok: true, elapsedMs: 120, error: null, status: normaliseStatusPhp({ installed: true, maintenance: false, ...extra }) });
 const okApi = (info = serverInfoPayload(), diskData = null) => ({ configured: true, ok: true, elapsedMs: 300, info: normaliseServerInfo(info, { diskData }) });
 

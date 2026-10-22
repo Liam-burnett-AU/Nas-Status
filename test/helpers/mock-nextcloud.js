@@ -83,7 +83,7 @@ async function startMockNextcloud(state = {}) {
     }
     json(404, { message: 'not found' });
   });
-  await new Promise((r) => server.listen(0, '127.0.0.1', r));
+  await new Promise((r) => server.listen(s.port || 0, '127.0.0.1', r));
   const { port } = server.address();
   return {
     state: s,

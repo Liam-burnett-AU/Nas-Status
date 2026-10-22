@@ -1,15 +1,22 @@
 #!/usr/bin/env node
 'use strict';
 
+/*
+ * Node.js host: serves public/ and the JSON API, and runs checks on a timer.
+ * For Cloudflare Workers, see src/worker.mjs instead.
+ */
+
 const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
-const { loadConfig } = require('./lib/config');
+const { buildConfig } = require('./lib/config');
+const { loadDotEnv } = require('./lib/dotenv');
 const { NextcloudClient } = require('./lib/nextcloud');
-const { HistoryStore, RANGES } = require('./lib/store');
+const { HistoryStore } = require('./lib/store');
 const { Monitor } = require('./lib/monitor');
+const { FilePersistence } = require('./lib/persist-file');
 const { DemoClient, backfill } = require('./lib/demo');
-const { buildStatus } = require('./lib/api');
+const { SECURITY_HEADERS, isApiPath, handleApi } = require('./lib/routes');
 
 const PUBLIC_DIR = path.join(__dirname, 'public');
 const MIME = {
@@ -22,14 +29,6 @@ const MIME = {
   '.ico': 'image/x-icon',
   '.webmanifest': 'application/manifest+json',
   '.txt': 'text/plain; charset=utf-8',
-};
-
-const SECURITY_HEADERS = {
-  'X-Content-Type-Options': 'nosniff',
-  'Referrer-Policy': 'no-referrer',
-  'X-Frame-Options': 'SAMEORIGIN',
-  'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
-  'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'",
 };
 
 const LEVELS = { debug: 10, info: 20, warn: 30, error: 40 };
@@ -61,7 +60,8 @@ function serveStatic(req, res, pathname) {
   }
   if (rel.endsWith('/')) rel += 'index.html';
   const filePath = path.resolve(PUBLIC_DIR, '.' + path.posix.normalize('/' + rel));
-  if (!filePath.startsWith(PUBLIC_DIR + path.sep)) {
+  // Files starting with "_" (such as the Workers _headers file) are config, not content.
+  if (!filePath.startsWith(PUBLIC_DIR + path.sep) || path.basename(filePath).startsWith('_')) {
     return sendJson(req, res, 404, { error: 'Not found' });
   }
   fs.stat(filePath, (err, stat) => {
@@ -96,55 +96,63 @@ function createServer({ config, store, monitor }) {
     } catch {
       return sendJson(req, res, 400, { error: 'Bad request' });
     }
-    const { pathname } = url;
-
     try {
-      if (pathname === '/api/status') {
-        return sendJson(req, res, 200, buildStatus({ config, store, monitor }));
+      if (isApiPath(url.pathname)) {
+        const { status, body } = handleApi(url.pathname, url.searchParams, { config, store, monitor });
+        return sendJson(req, res, status, body);
       }
-      if (pathname === '/api/history') {
-        const range = url.searchParams.get('range') || '24h';
-        if (!RANGES[range]) return sendJson(req, res, 400, { error: `range must be one of ${Object.keys(RANGES).join(', ')}` });
-        return sendJson(req, res, 200, store.history(range));
-      }
-      if (pathname === '/healthz' || pathname === '/api/healthz') {
-        const last = store.latest?.checkedAt ?? null;
-        const fresh = last !== null && Date.now() - last < config.pollIntervalMs * 3;
-        return sendJson(req, res, fresh ? 200 : 503, { ok: fresh, lastCheckAt: last, overall: store.latest?.evaluation?.overall ?? 'unknown' });
-      }
-      if (pathname.startsWith('/api/')) return sendJson(req, res, 404, { error: 'Not found' });
-      return serveStatic(req, res, pathname);
+      return serveStatic(req, res, url.pathname);
     } catch (err) {
-      log('error', `Request ${pathname} failed: ${err.stack || err}`);
+      log('error', `Request ${url.pathname} failed: ${err.stack || err}`);
       return sendJson(req, res, 500, { error: 'Internal server error' });
     }
   });
 }
 
+/** Timer loop: one check at a time, saving history periodically. */
+function startLoop({ config, monitor, persist }) {
+  let timer = null;
+  let running = true;
+  const tick = async () => {
+    await monitor.runOnce().catch((err) => log('error', `Check failed unexpectedly: ${err.stack || err}`));
+    if (!running) return;
+    monitor.nextCheckAt = Date.now() + config.pollIntervalMs;
+    timer = setTimeout(tick, config.pollIntervalMs);
+  };
+  const saveTimer = setInterval(persist, 5 * 60_000);
+  saveTimer.unref?.();
+  tick();
+  return () => {
+    running = false;
+    clearTimeout(timer);
+    clearInterval(saveTimer);
+    persist();
+  };
+}
+
 async function main() {
   if (process.argv.includes('--demo')) process.env.DEMO_MODE = 'true';
+  loadDotEnv(path.join(process.cwd(), '.env'));
   let config;
   try {
-    config = loadConfig();
+    config = buildConfig(process.env);
   } catch (err) {
     log('error', `Configuration error: ${err.message}`);
     process.exit(1);
   }
 
   const store = new HistoryStore({
-    file: config.demo ? null : path.join(config.dataDir, 'history.json'),
     timeZone: config.timeZone,
     incidentThreshold: config.incidentThreshold,
     pollIntervalMs: config.pollIntervalMs,
-    log,
   });
 
   let client;
+  let persistence = null;
   if (config.demo) {
     client = new DemoClient({ timeZone: config.timeZone });
   } else {
     client = new NextcloudClient(config.nextcloud, { timeoutMs: config.requestTimeoutMs });
-    if (store.load()) log('info', `Loaded ${store.samples.length} samples and ${store.daily.size} days of history.`);
     if (!client.canReadServerInfo) {
       log('warn', 'No NEXTCLOUD_TOKEN or NEXTCLOUD_USER/NEXTCLOUD_APP_PASSWORD set: only reachability will be monitored.');
     }
@@ -157,9 +165,21 @@ async function main() {
     const started = Date.now();
     await backfill(monitor, client, { now: started - config.pollIntervalMs });
     log('info', `Demo history ready (${store.samples.length} samples) in ${Date.now() - started} ms.`);
+  } else {
+    persistence = new FilePersistence(path.join(path.resolve(config.dataDir), 'history.json'), { log });
+    if (persistence.load(store, monitor)) log('info', `Loaded ${store.samples.length} samples and ${store.daily.size} days of history.`);
   }
 
-  monitor.start();
+  const persist = () => {
+    if (!persistence) return;
+    try {
+      persistence.save(store, monitor);
+    } catch (err) {
+      log('error', `Could not save history: ${err.message}`);
+    }
+  };
+
+  const stopLoop = startLoop({ config, monitor, persist });
   const server = createServer({ config, store, monitor });
   server.listen(config.port, config.host, () => {
     const addr = server.address();
@@ -172,7 +192,7 @@ async function main() {
     if (shuttingDown) return;
     shuttingDown = true;
     log('info', `${signal} received, saving history and shutting down.`);
-    monitor.stop();
+    stopLoop();
     server.close(() => process.exit(0));
     setTimeout(() => process.exit(0), 3000).unref();
   };

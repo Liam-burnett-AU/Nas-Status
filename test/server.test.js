@@ -2,7 +2,7 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { loadConfig } = require('../lib/config');
+const { buildConfig } = require('../lib/config');
 const { NextcloudClient } = require('../lib/nextcloud');
 const { HistoryStore } = require('../lib/store');
 const { Monitor } = require('../lib/monitor');
@@ -11,7 +11,7 @@ const { startMockNextcloud, TOKEN } = require('./helpers/mock-nextcloud');
 
 async function setup(t, env = {}, mockState = {}) {
   const mock = await startMockNextcloud(mockState);
-  const config = loadConfig({ NEXTCLOUD_URL: mock.url, NEXTCLOUD_TOKEN: TOKEN, TIMEZONE: 'Australia/Brisbane', ...env }, { dotenvPath: null });
+  const config = buildConfig({ NEXTCLOUD_URL: mock.url, NEXTCLOUD_TOKEN: TOKEN, TIMEZONE: 'Australia/Brisbane', ...env });
   const store = new HistoryStore({ timeZone: config.timeZone, incidentThreshold: config.incidentThreshold, pollIntervalMs: config.pollIntervalMs });
   const client = new NextcloudClient(config.nextcloud, { timeoutMs: 2000 });
   const logs = [];

@@ -14,7 +14,7 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
-const { loadConfig } = require('../lib/config');
+const { buildConfig } = require('../lib/config');
 const { HistoryStore, RANGES } = require('../lib/store');
 const { Monitor } = require('../lib/monitor');
 const { DemoClient, backfill } = require('../lib/demo');
@@ -29,7 +29,7 @@ async function main() {
   const root = path.join(__dirname, '..');
   const timeZone = arg('tz', process.env.TIMEZONE || 'Australia/Brisbane');
   const out = path.resolve(root, arg('out', 'dist/preview.html'));
-  const config = loadConfig({ DEMO_MODE: 'true', TIMEZONE: timeZone, SITE_TITLE: process.env.SITE_TITLE || 'NAS Status' }, { dotenvPath: null });
+  const config = buildConfig({ DEMO_MODE: 'true', TIMEZONE: timeZone, SITE_TITLE: process.env.SITE_TITLE || 'NAS Status' });
 
   const store = new HistoryStore({ timeZone, incidentThreshold: config.incidentThreshold, pollIntervalMs: config.pollIntervalMs });
   const client = new DemoClient({ timeZone });

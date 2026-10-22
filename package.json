@@ -1,7 +1,7 @@
 {
   "name": "nas-status",
   "version": "1.0.0",
-  "description": "A self-hosted status page for Nextcloud, powered by the serverinfo external monitoring API.",
+  "description": "A status page for Nextcloud, powered by the serverinfo external monitoring API. Runs on Cloudflare Workers or Node.js.",
   "main": "server.js",
   "type": "commonjs",
   "private": true,
@@ -14,6 +14,12 @@
     "start": "node server.js",
     "demo": "node server.js --demo",
     "test": "node --test test/*.test.js",
-    "build:preview": "node scripts/build-preview.js"
+    "build:preview": "node scripts/build-preview.js",
+    "worker:dev": "wrangler dev",
+    "worker:deploy": "wrangler deploy",
+    "worker:tail": "wrangler tail"
+  },
+  "devDependencies": {
+    "wrangler": "4.149.0"
   }
 }

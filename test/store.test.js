@@ -6,6 +6,8 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { HistoryStore, DAY_MS } = require('../lib/store');
+const { FilePersistence } = require('../lib/persist-file');
+const { Monitor } = require('../lib/monitor');
 const { STATUS } = require('../lib/evaluate');
 
 const MIN = 60_000;
@@ -127,14 +129,20 @@ test('prunes raw samples older than the retention window', () => {
 test('persists atomically and reloads', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'nas-status-'));
   const file = path.join(dir, 'history.json');
-  const s = newStore({ file });
+  const p = new FilePersistence(file);
+  const s = newStore();
   const now = Date.now();
   s.record(now - MIN, ev(STATUS.MAJOR), metrics);
   s.record(now, ev(STATUS.MAJOR), metrics);
   s.latest = { checkedAt: now };
-  s.save();
-  const t = newStore({ file });
-  assert.equal(t.load(), true);
+  const cfg = { pollIntervalMs: MIN, thresholds: {} };
+  const m = new Monitor({ config: cfg, store: s, client: {} });
+  m.infoGate.fail(now, 'Authentication rejected');
+  p.save(s, m);
+  const t = newStore();
+  const m2 = new Monitor({ config: cfg, store: t, client: {} });
+  assert.equal(p.load(t, m2), true);
+  assert.ok(m2.infoGate.isBlocked(now + 1000), 'auth back-off survives a restart');
   assert.equal(t.samples.length, 2);
   assert.equal(t.incidents.length, 1);
   assert.equal(t.latest.checkedAt, now);
@@ -146,8 +154,8 @@ test('a corrupt history file is moved aside instead of crashing', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'nas-status-'));
   const file = path.join(dir, 'history.json');
   fs.writeFileSync(file, '{not json');
-  const s = newStore({ file });
-  assert.equal(s.load(), false);
+  const s = newStore();
+  assert.equal(new FilePersistence(file).load(s), false);
   assert.equal(s.samples.length, 0);
   assert.ok(fs.readdirSync(dir).some((f) => f.includes('.corrupt-')));
   fs.rmSync(dir, { recursive: true });

@@ -1,0 +1,43 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "nas-status",
+  "main": "src/worker.mjs",
+  "compatibility_date": "2026-10-01",
+  "workers_dev": true,
+
+  // The status page itself. /api/* and /healthz always go to the Worker.
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS",
+    "run_worker_first": ["/api/*", "/healthz"]
+  },
+
+  // One Durable Object owns the history and runs each check on an alarm.
+  // SQLite-backed classes are available on the Workers Free plan.
+  "durable_objects": {
+    "bindings": [{ "name": "MONITOR", "class_name": "StatusMonitor" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["StatusMonitor"] }],
+
+  // Watchdog: makes sure the alarm is armed (starts monitoring after a deploy).
+  "triggers": { "crons": ["*/5 * * * *"] },
+
+  "observability": { "enabled": true },
+
+  // Non-secret settings. Secrets (NEXTCLOUD_TOKEN, NEXTCLOUD_APP_PASSWORD,
+  // CF_ACCESS_CLIENT_SECRET) go in with `npx wrangler secret put <NAME>`.
+  "vars": {
+    "NEXTCLOUD_URL": "https://cloud.example.com",
+    "SITE_TITLE": "NAS Status",
+    "SITE_DESCRIPTION": "Live health, performance and uptime for our Nextcloud server.",
+    "TIMEZONE": "Australia/Brisbane",
+    "SHOW_SERVER_DETAILS": "true",
+    "POLL_INTERVAL_SECONDS": "60",
+    "REQUEST_TIMEOUT_SECONDS": "10",
+    "INCIDENT_THRESHOLD": "2",
+    // Where the monitor runs (and so where response times are measured from).
+    // "oc" = Oceania. Only applies when the Durable Object is first created.
+    "DO_LOCATION_HINT": "oc",
+    "DEMO_MODE": "false"
+  }
+}
