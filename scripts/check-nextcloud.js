@@ -35,6 +35,9 @@ async function main() {
   }
   const nc = config.nextcloud;
   console.log(`Checking ${nc.baseUrl}\n`);
+  if (config.baseUrlAdjustedFrom) {
+    console.log(`  Note: NEXTCLOUD_URL should be the base address. Using ${nc.baseUrl} instead of ${config.baseUrlAdjustedFrom}.\n`);
+  }
   let failed = false;
 
   const tokenOnly = new NextcloudClient({ ...nc, user: '', appPassword: '' }, { timeoutMs: config.requestTimeoutMs });

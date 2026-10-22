@@ -18,6 +18,24 @@ test('strips trailing slashes and validates the URL', () => {
   assert.throws(() => load({ NEXTCLOUD_URL: 'not a url' }), /valid URL/);
 });
 
+test('trims a pasted Nextcloud link back to the base address', () => {
+  const cases = [
+    ['https://nas.lbdev.app/ocs/v2.php/apps/serverinfo/api/v1/info', 'https://nas.lbdev.app'],
+    ['https://nas.lbdev.app/ocs/v2.php/apps/serverinfo/api/v1/info?format=json', 'https://nas.lbdev.app'],
+    ['https://example.com/nextcloud/status.php', 'https://example.com/nextcloud'],
+    ['https://example.com/nextcloud/index.php/apps/files/', 'https://example.com/nextcloud'],
+    ['https://cloud.example.com:8443/remote.php/dav', 'https://cloud.example.com:8443'],
+  ];
+  for (const [input, expected] of cases) {
+    const c = load({ NEXTCLOUD_URL: input });
+    assert.equal(c.nextcloud.baseUrl, expected, input);
+    assert.ok(c.baseUrlAdjustedFrom, `${input} should be flagged as adjusted`);
+  }
+  const plain = load({ NEXTCLOUD_URL: 'https://nas.lbdev.app/' });
+  assert.equal(plain.nextcloud.baseUrl, 'https://nas.lbdev.app');
+  assert.equal(plain.baseUrlAdjustedFrom, null);
+});
+
 test('cleans up pasted secrets and rejects inner whitespace', () => {
   const base = { NEXTCLOUD_URL: 'https://c.example' };
   assert.equal(load({ ...base, NEXTCLOUD_TOKEN: '  abc123\n' }).nextcloud.token, 'abc123');

@@ -142,6 +142,10 @@ async function main() {
     process.exit(1);
   }
 
+  if (config.baseUrlAdjustedFrom) {
+    log('warn', `NEXTCLOUD_URL should be the base address. Using ${config.nextcloud.baseUrl} instead of ${config.baseUrlAdjustedFrom}.`);
+  }
+
   const store = new HistoryStore({
     timeZone: config.timeZone,
     incidentThreshold: config.incidentThreshold,

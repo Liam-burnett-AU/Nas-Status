@@ -63,6 +63,9 @@ export class StatusMonitor extends DurableObject {
     }
 
     const c = this.config;
+    if (c.baseUrlAdjustedFrom) {
+      log('warn', `NEXTCLOUD_URL should be the base address. Using ${c.nextcloud.baseUrl} instead of ${c.baseUrlAdjustedFrom}.`);
+    }
     this.store = new HistoryStore({ timeZone: c.timeZone, incidentThreshold: c.incidentThreshold, pollIntervalMs: c.pollIntervalMs });
     this.client = c.demo ? new DemoClient({ timeZone: c.timeZone }) : new NextcloudClient(c.nextcloud, { timeoutMs: c.requestTimeoutMs });
     this.monitor = new Monitor({ config: c, store: this.store, client: this.client, log });

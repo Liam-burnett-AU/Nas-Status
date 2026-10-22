@@ -27,7 +27,8 @@
   // Non-secret settings. Secrets (NEXTCLOUD_TOKEN, NEXTCLOUD_APP_PASSWORD,
   // CF_ACCESS_CLIENT_SECRET) go in with `npx wrangler secret put <NAME>`.
   "vars": {
-    "NEXTCLOUD_URL": "https://cloud.example.com",
+    // The address you open Nextcloud at (not the /ocs/... API link).
+    "NEXTCLOUD_URL": "https://nas.lbdev.app",
     "SITE_TITLE": "NAS Status",
     "SITE_DESCRIPTION": "Live health, performance and uptime for our Nextcloud server.",
     "TIMEZONE": "Australia/Brisbane",
