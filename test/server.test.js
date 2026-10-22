@@ -105,6 +105,37 @@ test('a rejected token backs off instead of hammering Nextcloud', async (t) => {
   assert.equal(monitor.store.latest.evaluation.components.api.status, 'unknown');
 });
 
+test('a corrected token is retried at once, not after the old back-off', async (t) => {
+  const { monitor, mock, store, config } = await setup(t, { NEXTCLOUD_TOKEN: 'wrong-token' });
+  const now = Date.now();
+  await monitor.runOnce(now);
+  assert.ok(monitor.infoGate.isBlocked(now + 1000));
+  assert.match(store.latest.api.error, /monitoring token/);
+  const saved = monitor.exportState();
+
+  // Same credentials after a restart: back-off is kept.
+  const same = new Monitor({ config, store, client: monitor.client });
+  same.importState(saved);
+  assert.ok(same.infoGate.isBlocked(now + 1000));
+
+  // New token after a restart: back-off is dropped and the token is tried straight away.
+  const fixed = buildConfig({ NEXTCLOUD_URL: mock.url, NEXTCLOUD_TOKEN: TOKEN, TIMEZONE: 'Australia/Brisbane' });
+  const client = new NextcloudClient(fixed.nextcloud, { timeoutMs: 2000 });
+  const restarted = new Monitor({ config: fixed, store, client });
+  restarted.importState(saved);
+  assert.equal(restarted.infoGate.isBlocked(now + 1000), false);
+  await restarted.runOnce(now + 1000);
+  assert.equal(store.latest.api.ok, true);
+});
+
+test('while backing off, the error says when the next attempt is', async (t) => {
+  const { monitor, store } = await setup(t, { NEXTCLOUD_TOKEN: 'wrong-token' });
+  const now = Date.now();
+  await monitor.runOnce(now);
+  await monitor.runOnce(now + 60_000);
+  assert.match(store.latest.api.error, /next attempt is at \d{1,2}:\d{2}\s?(am|pm)/);
+});
+
 test('history endpoint validates the range', async (t) => {
   const { monitor, base } = await setup(t);
   await monitor.runOnce();

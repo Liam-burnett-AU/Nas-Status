@@ -17,7 +17,8 @@
     "build:preview": "node scripts/build-preview.js",
     "worker:dev": "wrangler dev",
     "worker:deploy": "wrangler deploy",
-    "worker:tail": "wrangler tail"
+    "worker:tail": "wrangler tail",
+    "check": "node scripts/check-nextcloud.js"
   },
   "devDependencies": {
     "wrangler": "4.149.0"

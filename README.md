@@ -90,7 +90,12 @@ sudo docker exec --user www-data -it nextcloud-aio-nextcloud php occ config:app:
 
 # Read the token back so you can copy it
 sudo -u www-data php /var/www/nextcloud/occ config:app:get serverinfo token
+# ...or on All-in-One
+sudo docker exec --user www-data nextcloud-aio-nextcloud php occ config:app:get serverinfo token
 ```
+
+> Run the `set` command **once**. Every run creates a new token and the old one
+> stops working.
 
 ### 2. Make sure Cloudflare can reach your Nextcloud
 
@@ -110,6 +115,12 @@ curl -H "NC-Token: YOUR_TOKEN" \
 ```
 
 You should get back JSON that starts with `{"ocs":{"meta":{"status":"ok"`.
+Or let NAS Status check every step for you:
+
+```bash
+npm install
+npm run check -- https://cloud.yourdomain.com YOUR_TOKEN
+```
 
 ### 3. Configure and deploy
 
@@ -141,6 +152,7 @@ Useful commands:
 ```bash
 npm run worker:tail     # live logs from the deployed Worker
 npm run worker:dev      # run locally on http://localhost:8787 (put secrets in .dev.vars)
+npm run check           # test the URL, token and app password from your own machine
 ```
 
 ### What it costs on the free plan
@@ -301,7 +313,8 @@ WantedBy=multi-user.target
 
 | Message | Fix |
 | --- | --- |
-| `Authentication rejected` | The token does not match. Re-run `occ config:app:get serverinfo token` and copy it exactly. |
+| *Nextcloud rejected the monitoring token* | The token does not match. Read it with `occ config:app:get serverinfo token`, confirm it with `npm run check`, then run `npx wrangler secret put NEXTCLOUD_TOKEN` again and paste it. Leading or trailing spaces and quotes are removed automatically. A corrected token is tried straight away. |
+| *Nextcloud rejected the app password* | The account in `NEXTCLOUD_USER` must be an admin, and the app password must be the generated one (Personal settings → Security), not your login password. |
 | `Response was not JSON - this host is not in Nextcloud's trusted_domains` | Add the host name you use in `NEXTCLOUD_URL` to `trusted_domains` in `config.php`. |
 | `Unexpected redirect` | Check `http` versus `https` and the sub-path in `NEXTCLOUD_URL`. |
 | `TLS certificate not trusted` | On Node.js, self-signed certificates need `NODE_EXTRA_CA_CERTS=/path/to/ca.pem`. On Workers, use a publicly trusted certificate, which a Cloudflare Tunnel provides. TLS verification is never disabled. |
@@ -310,14 +323,14 @@ WantedBy=multi-user.target
 | Console: `beacon.min.js` violates the Content Security Policy | Cloudflare Web Analytics injects this script. Current versions allow it, so redeploy. |
 | `NEXTCLOUD_URL must use a host name` | Workers cannot fetch IP addresses. Add a DNS record or a Cloudflare Tunnel and use that name. |
 | Everything shows *Unreachable* on Workers | Nextcloud is not reachable from the internet. Run the `curl` test from step 2 on a phone using mobile data. |
-| `Authentication rejected` only on Workers | Requests now come from Cloudflare's IP addresses. Check Nextcloud's brute-force log, and add Cloudflare to `trusted_proxies` if Nextcloud sits behind Cloudflare's proxy. |
+| Token works with `npm run check` but is rejected on Workers | The Worker is probably using a different value. Run `npx wrangler secret list` to confirm `NEXTCLOUD_TOKEN` exists on this Worker, put it again, and watch `npm run worker:tail`. The log shows the token's length (64 for an `openssl rand -hex 32` token) but never the token. |
 | `Response is not an OCS envelope` | Enable the app with `occ app:enable serverinfo`. |
 | Free storage shows *size unknown* | Add the admin app password so the data volume can be matched from `diskdata`. |
 
 ## Development
 
 ```bash
-npm test               # 52 tests: normaliser, evaluator, history store, Durable Object storage, client, and end-to-end against a mock Nextcloud
+npm test               # 58 tests: normaliser, evaluator, history store, Durable Object storage, client, check script, and end-to-end against a mock Nextcloud
 npm run worker:dev     # the Worker on the real Workers runtime, locally
 npm run demo           # Node.js preview with generated data
 npm run build:preview  # single-file HTML snapshot in dist/

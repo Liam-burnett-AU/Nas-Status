@@ -20,11 +20,18 @@ test('client sends the NC-Token and OCS headers and unwraps the payload', async 
   assert.match(req.url, /skipApps=false/);
 });
 
-test('a wrong token is reported as an auth error', async (t) => {
+test('a wrong token is reported as an auth error that names the token', async (t) => {
   const mock = await startMockNextcloud();
   t.after(() => mock.close());
   const client = new NextcloudClient({ baseUrl: mock.url, token: 'wrong' }, { timeoutMs: 2000 });
-  await assert.rejects(client.getServerInfo(), (err) => err.kind === 'auth');
+  await assert.rejects(client.getServerInfo(), (err) => err.kind === 'auth' && err.mode === 'token' && /monitoring token \(NEXTCLOUD_TOKEN\)/.test(err.message));
+});
+
+test('a wrong app password is reported as such, naming the account', async (t) => {
+  const mock = await startMockNextcloud();
+  t.after(() => mock.close());
+  const client = new NextcloudClient({ baseUrl: mock.url, user: 'admin', appPassword: 'nope' }, { timeoutMs: 2000 });
+  await assert.rejects(client.getServerInfo(), (err) => err.mode === 'basic' && /app password for "admin"/.test(err.message) && /must be an admin/.test(err.message));
 });
 
 test('admin endpoints use basic auth', async (t) => {

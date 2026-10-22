@@ -18,6 +18,17 @@ test('strips trailing slashes and validates the URL', () => {
   assert.throws(() => load({ NEXTCLOUD_URL: 'not a url' }), /valid URL/);
 });
 
+test('cleans up pasted secrets and rejects inner whitespace', () => {
+  const base = { NEXTCLOUD_URL: 'https://c.example' };
+  assert.equal(load({ ...base, NEXTCLOUD_TOKEN: '  abc123\n' }).nextcloud.token, 'abc123');
+  assert.equal(load({ ...base, NEXTCLOUD_TOKEN: '"abc123"' }).nextcloud.token, 'abc123');
+  assert.equal(load({ ...base, NEXTCLOUD_TOKEN: "'abc123'" }).nextcloud.token, 'abc123');
+  assert.throws(() => load({ ...base, NEXTCLOUD_TOKEN: 'abc 123' }), /space or line break/);
+  const c = load({ ...base, NEXTCLOUD_USER: ' admin ', NEXTCLOUD_APP_PASSWORD: ' aBcDe-FgHiJ-kLmNo-PqRsT-uVwXy\n' });
+  assert.equal(c.nextcloud.user, 'admin');
+  assert.equal(c.nextcloud.appPassword, 'aBcDe-FgHiJ-kLmNo-PqRsT-uVwXy');
+});
+
 test('validates numbers, booleans, time zones and pairs', () => {
   const base = { NEXTCLOUD_URL: 'https://c.example' };
   assert.throws(() => load({ ...base, POLL_INTERVAL_SECONDS: '5' }), /between 15/);
