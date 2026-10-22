@@ -88,15 +88,61 @@
       return STATIC.history[range];
     }
     const res = await fetch(url, { cache: 'no-store', headers: { Accept: 'application/json' } });
-    if (!res.ok) {
-      let detail = `HTTP ${res.status}`;
+    const ours = res.headers.get('x-nas-status') === 'api';
+    if (res.ok && ours) return res.json();
+    throw await explainFailure(res, ours);
+  }
+
+  /** An error the banner can show as a title plus a plain-English explanation. */
+  class ApiError extends Error {
+    constructor(title, detail) {
+      super(`${title} ${detail}`.trim());
+      this.title = title;
+      this.detail = detail;
+    }
+  }
+
+  /**
+   * Work out who produced a failed response. NAS Status marks its own replies with
+   * X-NAS-Status, so anything without it came from Cloudflare security, Access,
+   * a proxy or a network filter in front of the Worker.
+   */
+  async function explainFailure(res, ours) {
+    const ray = (res.headers.get('cf-ray') || '').split('-')[0];
+    const rayText = ray ? ` Ray ID: ${ray}.` : '';
+    if (ours) {
+      let message = `HTTP ${res.status}`;
       try {
         const body = await res.json();
-        if (body && typeof body.error === 'string') detail = body.error;
+        if (body && typeof body.error === 'string') message = body.error;
       } catch { /* not JSON */ }
-      throw new Error(detail);
+      return new ApiError('The status server reported a problem.', message);
     }
-    return res.json();
+    if (res.headers.get('cf-mitigated') === 'challenge') {
+      return new ApiError(
+        'Cloudflare security challenged the data request.',
+        `Bot Fight Mode, "I'm Under Attack" mode or a WAF rule is challenging requests to /api/. Turn Bot Fight Mode off, or add a WAF custom rule that skips security for /api/ on this host.${rayText}`,
+      );
+    }
+    if (res.status === 429) {
+      return new ApiError(
+        'Cloudflare is limiting requests to this site (HTTP 429).',
+        `The Workers Free plan allows 100,000 requests a day and resets at 00:00 UTC. A rate limiting rule can also cause this.${rayText}`,
+      );
+    }
+    if (res.status === 401 || res.status === 403) {
+      return new ApiError(
+        `Something in front of the status page blocked the data request (HTTP ${res.status}).`,
+        `The status page never sends this itself. Check Security → Events in the Cloudflare dashboard, and Cloudflare Access if it protects this site. A school or work web filter can also do this.${rayText}`,
+      );
+    }
+    if (res.ok) {
+      return new ApiError(
+        'The data request returned a web page instead of status data.',
+        `A login page, proxy or filter is answering for /api/.${rayText}`,
+      );
+    }
+    return new ApiError(`The data request failed (HTTP ${res.status}).`, `It did not come from the status page itself.${rayText}`);
   }
 
   async function refresh() {
@@ -220,10 +266,12 @@
     const out = [];
     if (state.error) {
       const since = state.lastFetchOk ? ` Showing data from ${esc(F.time(state.lastFetchOk))}.` : '';
-      // A TypeError from fetch() means the network failed; anything else carries the server's own explanation.
-      const detail = state.error instanceof TypeError || !state.error.message ? '' : ` ${esc(state.error.message)}`;
-      const title = detail ? 'The status server reported a problem.' : "Can't reach the status server.";
-      out.push(banner('critical', 'x', `<strong>${title}</strong>${detail}${since} Retrying automatically.`));
+      // ApiError explains who failed; anything else (a TypeError from fetch) means the network failed.
+      const err = state.error;
+      const title = err.title || "Can't reach the status server.";
+      const sentence = (t) => (/[.!?]$/.test(t) ? t : `${t}.`);
+      const detail = err.title && err.detail ? ` ${esc(sentence(err.detail))}` : '';
+      out.push(banner('critical', 'x', `<strong>${esc(title)}</strong>${detail}${since} Retrying automatically.`));
     }
     if (s) {
       if (STATIC || s.monitor.demo) {

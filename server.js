@@ -16,7 +16,7 @@ const { HistoryStore } = require('./lib/store');
 const { Monitor } = require('./lib/monitor');
 const { FilePersistence } = require('./lib/persist-file');
 const { DemoClient, backfill } = require('./lib/demo');
-const { SECURITY_HEADERS, isApiPath, handleApi } = require('./lib/routes');
+const { SECURITY_HEADERS, API_MARKER, isApiPath, handleApi } = require('./lib/routes');
 
 const PUBLIC_DIR = path.join(__dirname, 'public');
 const MIME = {
@@ -43,6 +43,7 @@ function sendJson(req, res, status, body, extraHeaders = {}) {
   const json = JSON.stringify(body);
   res.writeHead(status, {
     ...SECURITY_HEADERS,
+    ...API_MARKER,
     'Content-Type': MIME['.json'],
     'Cache-Control': 'no-store',
     'Content-Length': Buffer.byteLength(json),

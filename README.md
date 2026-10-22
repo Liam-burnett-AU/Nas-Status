@@ -305,6 +305,9 @@ WantedBy=multi-user.target
 | `Response was not JSON - this host is not in Nextcloud's trusted_domains` | Add the host name you use in `NEXTCLOUD_URL` to `trusted_domains` in `config.php`. |
 | `Unexpected redirect` | Check `http` versus `https` and the sub-path in `NEXTCLOUD_URL`. |
 | `TLS certificate not trusted` | On Node.js, self-signed certificates need `NODE_EXTRA_CA_CERTS=/path/to/ca.pem`. On Workers, use a publicly trusted certificate, which a Cloudflare Tunnel provides. TLS verification is never disabled. |
+| *Something in front of the status page blocked the data request (HTTP 403)* | Cloudflare security, Cloudflare Access or a web filter blocked `/api/status`. The status page never sends a 403. Look up the Ray ID shown on the page under *Security → Events*. If Access protects the site, the page and `/api/*` need the same policy. |
+| *Cloudflare security challenged the data request* | Bot Fight Mode, "I'm Under Attack" mode or a WAF rule challenged `/api/*`. Turn Bot Fight Mode off, or add a WAF custom rule for this host and path `/api/` with the action *Skip*. |
+| Console: `beacon.min.js` violates the Content Security Policy | Cloudflare Web Analytics injects this script. Current versions allow it, so redeploy. |
 | `NEXTCLOUD_URL must use a host name` | Workers cannot fetch IP addresses. Add a DNS record or a Cloudflare Tunnel and use that name. |
 | Everything shows *Unreachable* on Workers | Nextcloud is not reachable from the internet. Run the `curl` test from step 2 on a phone using mobile data. |
 | `Authentication rejected` only on Workers | Requests now come from Cloudflare's IP addresses. Check Nextcloud's brute-force log, and add Cloudflare to `trusted_proxies` if Nextcloud sits behind Cloudflare's proxy. |

@@ -32,6 +32,8 @@ test('end to end: status API reflects a healthy server', async (t) => {
   const res = await fetch(`${base}/api/status`);
   assert.equal(res.status, 200);
   assert.equal(res.headers.get('cache-control'), 'no-store');
+  assert.equal(res.headers.get('x-nas-status'), 'api', 'API replies are marked so the page can spot proxy/WAF responses');
+  assert.match(res.headers.get('content-security-policy'), /script-src 'self' https:\/\/static\.cloudflareinsights\.com/);
   assert.match(res.headers.get('content-security-policy'), /default-src 'self'/);
   const body = await res.json();
   assert.equal(body.overall.status, 'operational');

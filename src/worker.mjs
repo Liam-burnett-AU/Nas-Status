@@ -12,7 +12,7 @@ import { NextcloudClient } from '../lib/nextcloud.js';
 import { HistoryStore } from '../lib/store.js';
 import { Monitor } from '../lib/monitor.js';
 import { DemoClient, backfill } from '../lib/demo.js';
-import { SECURITY_HEADERS, isApiPath, handleApi } from '../lib/routes.js';
+import { SECURITY_HEADERS, API_MARKER, isApiPath, handleApi } from '../lib/routes.js';
 import { DurablePersistence } from './durable-storage.mjs';
 
 const OBJECT_NAME = 'primary';
@@ -22,7 +22,7 @@ const VALID_LOCATION_HINTS = new Set(['wnam', 'enam', 'sam', 'weur', 'eeur', 'ap
 function json(status, body, extra = {}) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...SECURITY_HEADERS, 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', ...extra },
+    headers: { ...SECURITY_HEADERS, ...API_MARKER, 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', ...extra },
   });
 }
 
@@ -128,7 +128,7 @@ export class StatusMonitor extends DurableObject {
           this.statusMemo = { checkedAt, builtAt: Date.now(), text: JSON.stringify(body) };
         }
         return new Response(this.statusMemo.text, {
-          headers: { ...SECURITY_HEADERS, 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' },
+          headers: { ...SECURITY_HEADERS, ...API_MARKER, 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' },
         });
       }
       const { status, body } = handleApi(url.pathname, url.searchParams, { config: this.config, store: this.store, monitor: this.monitor });
