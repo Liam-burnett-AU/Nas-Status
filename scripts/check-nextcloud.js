@@ -45,8 +45,10 @@ async function main() {
     const { data, elapsedMs } = await tokenOnly.getStatus();
     ok(`status.php answered in ${elapsedMs} ms (${data.productname || 'Nextcloud'} ${data.versionstring || ''}${data.maintenance ? ', maintenance mode ON' : ''})`);
   } catch (err) {
-    bad(`status.php: ${err.message}`);
-    console.log('\n  Nextcloud is not reachable at this address, so the other checks are skipped.');
+    bad(`status.php: ${err.message}.`);
+    console.log(err.kind === 'blocked'
+      ? '\n  The request was stopped before it reached Nextcloud, so the other checks are skipped.'
+      : '\n  Nextcloud is not reachable at this address, so the other checks are skipped.');
     process.exitCode = 1;
     return;
   }

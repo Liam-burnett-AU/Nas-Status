@@ -67,6 +67,14 @@ test('high CPU or memory degrades the resources component', () => {
   assert.match(e.components.resources.message, /memory/);
 });
 
+test('a block in front of Nextcloud is "no data", not an outage', () => {
+  const e = evaluate({ web: { ok: false, error: 'Cloudflare Access is protecting Nextcloud', errorKind: 'blocked' }, api: { configured: true, ok: false, error: 'x', errorKind: 'blocked' } }, T);
+  assert.equal(e.components.web.status, STATUS.UNKNOWN);
+  assert.equal(e.components.api.status, STATUS.UNKNOWN);
+  assert.equal(e.overall, STATUS.UNKNOWN);
+  assert.match(e.message, /blocked before it reaches Nextcloud/);
+});
+
 test('without credentials the API is unknown and the page still works', () => {
   const e = evaluate({ web: okWeb(), api: { configured: false, ok: false, error: 'Not configured' } }, T);
   assert.equal(e.components.api.status, STATUS.UNKNOWN);

@@ -73,3 +73,27 @@ test('unreachable host is a network error', async () => {
   const client = new NextcloudClient({ baseUrl: `http://127.0.0.1:${port}` }, { timeoutMs: 2000 });
   await assert.rejects(client.getStatus(), (err) => err.kind === 'network' && /refused/i.test(err.message));
 });
+
+test('blocks in front of Nextcloud are named, never blamed on the token', async (t) => {
+  const mock = await startMockNextcloud();
+  t.after(() => mock.close());
+  const client = new NextcloudClient({ baseUrl: mock.url, token: TOKEN }, { timeoutMs: 2000 });
+  const expect = {
+    access: /Cloudflare Access is protecting Nextcloud.*Ray ID 8d1f2a3b4c5d6e7f/,
+    'access-redirect': /Cloudflare Access is protecting Nextcloud/,
+    challenge: /bot protection challenged the monitor/,
+    'proxy-basic': /reverse proxy/,
+    plain401: /Something in front of Nextcloud refused the request \(HTTP 401\)/,
+    'tunnel-down': /Cloudflare Tunnel for this host is not connected/,
+  };
+  for (const [mode, pattern] of Object.entries(expect)) {
+    mock.state.mode = mode;
+    for (const call of [() => client.getStatus(), () => client.getServerInfo()]) {
+      await assert.rejects(call(), (err) => {
+        assert.match(err.message, pattern, mode);
+        assert.notEqual(err.kind, 'auth', `${mode} must not trigger the token back-off`);
+        return true;
+      });
+    }
+  }
+});

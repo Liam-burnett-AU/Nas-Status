@@ -279,7 +279,8 @@
       }
       if (!s.monitor.apiConfigured && !s.monitor.demo && s.monitor.lastCheckAt) {
         out.push(banner('warning', 'alert', '<strong>Only reachability is monitored.</strong> Add a serverinfo token (<code>NEXTCLOUD_TOKEN</code>) to unlock resource, storage and usage data.'));
-      } else if (s.monitor.apiError) {
+      } else if (s.monitor.apiError && s.components.find((c) => c.id === 'web')?.message !== s.monitor.apiError) {
+        // (Skipped when the hero already shows the same explanation, such as a Cloudflare Access block.)
         const stale = s.monitor.infoAt ? ` Figures below are from the last successful report at ${esc(F.dateTime(s.monitor.infoAt))}.` : '';
         out.push(banner('warning', 'alert', `<strong>Monitoring API:</strong> ${esc(s.monitor.apiError)}.${stale}`));
       }
@@ -316,6 +317,10 @@
       sub = `${healthy} of ${s.components.length} components healthy. Last checked at ${F.time(s.monitor.lastCheckAt)}.`;
     } else if (affected.length) {
       sub = affected.map((c) => `${c.name}: ${c.message}`).join(' · ');
+    } else if (st === 'unknown') {
+      // Nothing is known to be down, but the monitor could not see Nextcloud: say why.
+      const why = s.components.find((c) => c.id === 'web' && c.status === 'unknown')?.message;
+      sub = why ? `${why}. Last checked at ${F.time(s.monitor.lastCheckAt)}.` : `Last checked at ${F.time(s.monitor.lastCheckAt)}.`;
     } else {
       sub = `Last checked at ${F.time(s.monitor.lastCheckAt)}.`;
     }

@@ -104,8 +104,27 @@ public **host name** over HTTPS.
 
 - **Workers cannot fetch IP addresses.** `https://203.0.113.10` will not work. Use a DNS name.
 - **A NAS on a home connection** is easiest to expose with a [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/), for example `cloud.yourdomain.com`.
-- **Behind Cloudflare Access?** Create a service token and add it as the `CF_ACCESS_CLIENT_ID` and `CF_ACCESS_CLIENT_SECRET` secrets.
+- **Behind Cloudflare Access?** Let the monitor through with a service token (see below).
+- **Bot Fight Mode blocks Workers.** If it is on for the domain, turn it off under *Security → Bots*. On the free plan it cannot be skipped per path.
 - **Stick to port 443.** Hosts proxied by Cloudflare only accept a fixed list of ports.
+
+#### Letting the monitor through Cloudflare Access
+
+If `nas.yourdomain.com` is an Access application, the page will say *Cloudflare
+Access is protecting Nextcloud*. Give the monitor its own key:
+
+1. In the Cloudflare dashboard, go to *Zero Trust → Access controls → Service credentials → Service Tokens* and create a token called `nas-status`. Pick a duration you will remember to renew, or a non-expiring one. Copy the Client ID and Client Secret, because the secret is shown only once.
+2. Go to *Zero Trust → Access controls → Applications*, edit the Nextcloud application and add a policy:
+   - Action: **Service Auth**
+   - Include: **Service Token** → `nas-status`
+3. Store both values in the Worker and redeploy:
+   ```bash
+   npx wrangler secret put CF_ACCESS_CLIENT_ID
+   npx wrangler secret put CF_ACCESS_CLIENT_SECRET
+   npm run worker:deploy
+   ```
+
+Your own Access login policies stay as they are. Only requests carrying the token skip the login page.
 
 Test from any machine outside your network:
 
@@ -318,6 +337,10 @@ WantedBy=multi-user.target
 | `Response was not JSON - this host is not in Nextcloud's trusted_domains` | Add the host name you use in `NEXTCLOUD_URL` to `trusted_domains` in `config.php`. |
 | `Unexpected redirect` | Check `http` versus `https` and the sub-path in `NEXTCLOUD_URL`. |
 | `TLS certificate not trusted` | On Node.js, self-signed certificates need `NODE_EXTRA_CA_CERTS=/path/to/ca.pem`. On Workers, use a publicly trusted certificate, which a Cloudflare Tunnel provides. TLS verification is never disabled. |
+| *Cloudflare Access is protecting Nextcloud* | Add a service token as described in step 2. |
+| *Cloudflare's bot protection challenged the monitor* | Turn off Bot Fight Mode for the domain under *Security → Bots*. |
+| *The Cloudflare Tunnel for this host is not connected (error 1033)* | Start `cloudflared` on the NAS, and check the tunnel's status in Zero Trust under *Networks → Tunnels*. |
+| *Something in front of Nextcloud refused the request* | Access, a firewall rule or a reverse proxy blocked the monitor before Nextcloud saw it. `status.php` never needs a login. These checks show as *No data*, not downtime. |
 | *Something in front of the status page blocked the data request (HTTP 403)* | Cloudflare security, Cloudflare Access or a web filter blocked `/api/status`. The status page never sends a 403. Look up the Ray ID shown on the page under *Security → Events*. If Access protects the site, the page and `/api/*` need the same policy. |
 | *Cloudflare security challenged the data request* | Bot Fight Mode, "I'm Under Attack" mode or a WAF rule challenged `/api/*`. Turn Bot Fight Mode off, or add a WAF custom rule for this host and path `/api/` with the action *Skip*. |
 | Console: `beacon.min.js` violates the Content Security Policy | Cloudflare Web Analytics injects this script. Current versions allow it, so redeploy. |

@@ -60,6 +60,31 @@ async function startMockNextcloud(state = {}) {
     const ocs = (code, data, statuscode = code) => json(code, { ocs: { meta: { status: code < 300 ? 'ok' : 'failure', statuscode, message: code < 300 ? 'OK' : 'Error' }, data } });
     const url = new URL(req.url, 'http://x');
 
+    // Simulated layers in front of Nextcloud.
+    if (s.mode === 'access') {
+      res.writeHead(403, { 'Content-Type': 'text/html', 'cf-ray': '8d1f2a3b4c5d6e7f-BNE' });
+      return res.end('<html><title>Forbidden</title>Cloudflare Access</html>');
+    }
+    if (s.mode === 'access-redirect') {
+      res.writeHead(302, { Location: 'https://lbdev.cloudflareaccess.com/cdn-cgi/access/login/nas.lbdev.app' });
+      return res.end();
+    }
+    if (s.mode === 'challenge') {
+      res.writeHead(403, { 'Content-Type': 'text/html', 'cf-mitigated': 'challenge', 'cf-ray': '8d1f2a3b4c5d6e7f-BNE' });
+      return res.end('<html>Just a moment...</html>');
+    }
+    if (s.mode === 'proxy-basic') {
+      res.writeHead(401, { 'Content-Type': 'text/html', 'WWW-Authenticate': 'Basic realm="NAS"' });
+      return res.end('<html>401 Authorization Required</html>');
+    }
+    if (s.mode === 'plain401') {
+      res.writeHead(401, { 'Content-Type': 'text/html' });
+      return res.end('<html>Unauthorized</html>');
+    }
+    if (s.mode === 'tunnel-down') {
+      res.writeHead(530, { 'Content-Type': 'text/html', 'cf-ray': '8d1f2a3b4c5d6e7f-BNE' });
+      return res.end('<html>Error 1033 Argo Tunnel error</html>');
+    }
     if (url.pathname === '/status.php') {
       if (s.mode === 'html') {
         res.writeHead(200, { 'Content-Type': 'text/html' });
