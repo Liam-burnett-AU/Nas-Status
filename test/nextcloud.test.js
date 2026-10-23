@@ -79,7 +79,7 @@ test('blocks in front of Nextcloud are named, never blamed on the token', async 
   t.after(() => mock.close());
   const client = new NextcloudClient({ baseUrl: mock.url, token: TOKEN }, { timeoutMs: 2000 });
   const expect = {
-    access: /Cloudflare Access is protecting Nextcloud.*Ray ID 8d1f2a3b4c5d6e7f/,
+    access: /Cloudflare Access is protecting Nextcloud.*Ray ID 8d1f2a3b4c5d6e7f.*has no service token yet/,
     'access-redirect': /Cloudflare Access is protecting Nextcloud/,
     challenge: /bot protection challenged the monitor/,
     'proxy-basic': /reverse proxy/,
@@ -96,4 +96,14 @@ test('blocks in front of Nextcloud are named, never blamed on the token', async 
       });
     }
   }
+});
+
+test('with a service token configured, an Access block says the token was refused', async (t) => {
+  const mock = await startMockNextcloud({ mode: 'access' });
+  t.after(() => mock.close());
+  const client = new NextcloudClient({ baseUrl: mock.url, token: TOKEN, accessClientId: 'abc.access', accessClientSecret: 'cfast_secret' }, { timeoutMs: 2000 });
+  await assert.rejects(client.getStatus(), (err) => /refused the monitor's service token/.test(err.message) && /Service Auth/.test(err.message));
+  const req = mock.state.requests.at(-1);
+  assert.equal(req.headers['cf-access-client-id'], 'abc.access');
+  assert.equal(req.headers['cf-access-client-secret'], 'cfast_secret');
 });

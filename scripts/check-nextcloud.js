@@ -34,7 +34,8 @@ async function main() {
     return;
   }
   const nc = config.nextcloud;
-  console.log(`Checking ${nc.baseUrl}\n`);
+  console.log(`Checking ${nc.baseUrl}`);
+  console.log(`  Cloudflare Access service token: ${nc.accessClientId ? `set (Client ID ${nc.accessClientId.slice(0, 8)}…)` : 'not set'}\n`);
   if (config.baseUrlAdjustedFrom) {
     console.log(`  Note: NEXTCLOUD_URL should be the base address. Using ${nc.baseUrl} instead of ${config.baseUrlAdjustedFrom}.\n`);
   }
