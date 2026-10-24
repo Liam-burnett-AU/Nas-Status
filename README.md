@@ -94,6 +94,16 @@ sudo -u www-data php /var/www/nextcloud/occ config:app:get serverinfo token
 sudo docker exec --user www-data nextcloud-aio-nextcloud php occ config:app:get serverinfo token
 ```
 
+**TrueNAS SCALE app** (24.10 or later): find the container name, then run `occ` inside it.
+
+```bash
+sudo docker ps --format '{{.Names}}' | grep -i nextcloud     # use the one ending in nextcloud-1
+sudo docker exec -u www-data ix-nextcloud-nextcloud-1 php occ config:app:get serverinfo token
+sudo docker exec -u www-data ix-nextcloud-nextcloud-1 php occ config:app:set serverinfo token --value "$(openssl rand -hex 32)"
+```
+
+If you paste several lines into zsh, leave out lines starting with `#`. zsh does not treat them as comments by default.
+
 > Run the `set` command **once**. Every run creates a new token and the old one
 > stops working.
 
