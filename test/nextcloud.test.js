@@ -82,9 +82,9 @@ test('blocks in front of Nextcloud are named, never blamed on the token', async 
     access: /Cloudflare Access is protecting Nextcloud.*Ray ID 8d1f2a3b4c5d6e7f.*has no service token yet/,
     'access-redirect': /Cloudflare Access is protecting Nextcloud/,
     challenge: /bot protection challenged the monitor/,
-    'proxy-basic': /reverse proxy/,
+    'proxy-basic': /password prompt \(HTTP basic auth\) in front of Nextcloud/,
     plain401: /Something in front of Nextcloud refused the request \(HTTP 401\)/,
-    'tunnel-down': /Cloudflare Tunnel for this host is not connected/,
+    'tunnel-down': /Cloudflare Tunnel for Nextcloud is not connected/,
   };
   for (const [mode, pattern] of Object.entries(expect)) {
     mock.state.mode = mode;
@@ -92,6 +92,7 @@ test('blocks in front of Nextcloud are named, never blamed on the token', async 
       await assert.rejects(call(), (err) => {
         assert.match(err.message, pattern, mode);
         assert.notEqual(err.kind, 'auth', `${mode} must not trigger the token back-off`);
+        assert.equal(err.kind, mode === 'tunnel-down' ? 'network' : 'blocked', `${mode}: a dead tunnel is an outage, the rest only block the monitor`);
         return true;
       });
     }

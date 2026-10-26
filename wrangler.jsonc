@@ -39,6 +39,21 @@
     // Where the monitor runs (and so where response times are measured from).
     // "oc" = Oceania. Only applies when the Durable Object is first created.
     "DO_LOCATION_HINT": "oc",
-    "DEMO_MODE": "false"
+    "DEMO_MODE": "false",
+
+    // Your other apps, checked every minute alongside Nextcloud.
+    //   url         address to check (leave "" until you have one: it shows as "Not set up")
+    //   access      true = send the Cloudflare Access service token (CF_ACCESS_*) to this app
+    //   expectStatus  optional, e.g. 401 or [200, 404] for an API whose base address is not a page
+    //   keyword     optional text that must appear on the page
+    "SERVICES": [
+      { "name": "Logbook", "url": "https://logbook.lbdev.app", "access": true },
+      { "name": "NAS", "url": "https://nas.lbdev.app", "access": true },
+      { "name": "Pit Wall", "url": "https://pit-wall.lbdev.app", "access": true },
+      { "name": "SFOS", "url": "https://sfos.lbdev.app", "access": true },
+      { "name": "ShareSafe", "url": "https://sharesafe.lbdev.app", "access": true },
+      { "name": "Emailing API", "url": "" },
+      { "name": "Login API", "url": "" }
+    ]
   }
 }

@@ -29,10 +29,11 @@ async function main() {
   const root = path.join(__dirname, '..');
   const timeZone = arg('tz', process.env.TIMEZONE || 'Australia/Brisbane');
   const out = path.resolve(root, arg('out', 'dist/preview.html'));
-  const config = buildConfig({ DEMO_MODE: 'true', TIMEZONE: timeZone, SITE_TITLE: process.env.SITE_TITLE || 'NAS Status' });
+  const config = buildConfig({ DEMO_MODE: 'true', TIMEZONE: timeZone, SITE_TITLE: process.env.SITE_TITLE || 'NAS Status', SERVICES: process.env.SERVICES });
 
   const store = new HistoryStore({ timeZone, incidentThreshold: config.incidentThreshold, pollIntervalMs: config.pollIntervalMs });
   const client = new DemoClient({ timeZone });
+  client.setServices(config.services);
   const monitor = new Monitor({ config, store, client });
   const now = Date.now();
   await backfill(monitor, client, { now });

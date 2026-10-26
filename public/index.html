@@ -85,12 +85,23 @@
       </div>
     </section>
 
+    <section class="card section" aria-labelledby="services-title" data-bind="services-section" hidden>
+      <div class="section-head">
+        <div>
+          <h2 id="services-title">Applications</h2>
+          <p class="section-sub" data-bind="services-sub">Each app is checked every minute.</p>
+        </div>
+        <div class="services-summary" data-bind="services-summary" aria-live="polite"></div>
+      </div>
+      <div class="services" data-bind="services"></div>
+    </section>
+
     <section class="kpis" aria-label="Key metrics" data-bind="kpis"></section>
 
     <section class="card section" aria-labelledby="components-title">
       <div class="section-head">
         <div>
-          <h2 id="components-title">Components</h2>
+          <h2 id="components-title">Nextcloud components</h2>
           <p class="section-sub">Daily status for the past <span class="only-wide">90</span><span class="only-narrow">30</span> days. Hover or use the arrow keys for details.</p>
         </div>
         <ul class="legend legend-status" data-bind="status-legend"></ul>

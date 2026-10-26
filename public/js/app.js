@@ -223,6 +223,7 @@
     renderBanners();
     renderHero();
     renderKpis();
+    renderServices();
     renderComponents();
     renderCharts();
     renderGauges();
@@ -309,12 +310,14 @@
     bind('overall-message').textContent = s.overall.message;
 
     let sub;
-    const affected = s.components.filter((c) => c.status !== 'operational' && c.status !== 'unknown');
+    const checks = [...s.components, ...(s.services || [])];
+    const affected = checks.filter((c) => c.status !== 'operational' && c.status !== 'unknown');
     if (!s.monitor.lastCheckAt) {
       sub = 'The monitor is starting up. The first check usually completes within a few seconds.';
     } else if (st === 'operational') {
-      const healthy = s.components.filter((c) => c.status === 'operational').length;
-      sub = `${healthy} of ${s.components.length} components healthy. Last checked at ${F.time(s.monitor.lastCheckAt)}.`;
+      const known = checks.filter((c) => c.status !== 'unknown');
+      const healthy = known.filter((c) => c.status === 'operational').length;
+      sub = `${healthy} of ${known.length} checks healthy. Last checked at ${F.time(s.monitor.lastCheckAt)}.`;
     } else if (affected.length) {
       sub = affected.map((c) => `${c.name}: ${c.message}`).join(' · ');
     } else if (st === 'unknown') {
@@ -427,6 +430,78 @@
     const resp = isNum(day.avgResponseMs) ? `<div class="tt-row"><span class="tt-label">Avg response</span><span class="tt-value">${esc(F.ms(day.avgResponseMs))}</span></div>` : '';
     const summary = parts.length === 1 && parts[0][0] === 'operational' ? '<div class="tt-row tt-muted">No issues recorded</div>' : rows;
     return `${title}<div class="tt-status tt-status-${esc(day.status)}">${esc(meta(day.status).label)}</div>${bar}${uptime}${resp}${summary}<div class="tt-row tt-muted">${esc(F.number(day.checks))} checks</div>`;
+  }
+
+  // ------------------------------------------------------------- apps
+  function renderServices() {
+    const s = state.status;
+    const list = s.services || [];
+    const section = bind('services-section');
+    section.hidden = list.length === 0;
+    if (!list.length) return;
+
+    const up = list.filter((x) => x.status === 'operational' || x.status === 'degraded').length;
+    const down = list.filter((x) => x.status === 'major_outage' || x.status === 'partial_outage').length;
+    const pending = list.filter((x) => !x.url).length;
+    const blocked = list.filter((x) => x.url && x.status === 'unknown').length;
+    const chips = [`<span class="pill s-operational">${icon('check')}${up} up</span>`];
+    if (down) chips.push(`<span class="pill s-major_outage">${icon('x')}${down} down</span>`);
+    if (blocked) chips.push(`<span class="pill s-unknown">${icon('help')}${blocked} no data</span>`);
+    if (pending) chips.push(`<span class="pill s-unknown">${icon('help')}${pending} not set up</span>`);
+    bind('services-summary').innerHTML = chips.join('');
+    bind('services-sub').textContent = `Each app is checked every ${F.duration(s.monitor.pollIntervalMs)}. Hover the bars for daily detail.`;
+
+    const root = bind('services');
+    // Rebuild only when the list of apps changes, so sparklines keep their instances.
+    const signature = list.map((x) => x.id).join('|');
+    if (root.dataset.signature !== signature) {
+      root.innerHTML = list.map((x) => `
+        <div class="service" data-service="${esc(x.id)}">
+          <div class="service-head">
+            <div class="service-name">
+              <span class="service-dot" aria-hidden="true"></span>
+              <div class="service-title">
+                <div class="service-title-row"><h3>${esc(x.name)}</h3><span data-pill></span></div>
+                ${x.url ? `<a class="service-host" href="${esc(x.url)}" target="_blank" rel="noopener noreferrer">${esc(x.host)}</a>` : '<span class="service-host muted">No address set up yet</span>'}
+              </div>
+            </div>
+            <div class="service-metrics">
+              <div class="service-spark" data-spark title="Response time, last 24 hours"></div>
+              <dl class="service-figs">
+                <div><dt>Response</dt><dd data-fig="ms">—</dd></div>
+                <div><dt>Uptime · 30 d</dt><dd data-fig="uptime">—</dd></div>
+              </dl>
+            </div>
+          </div>
+          <p class="component-msg" data-msg hidden></p>
+          <div class="ubars" aria-label="${esc(x.name)} daily status, use arrow keys to explore"></div>
+          <div class="ubar-foot"><span><span class="only-wide">90 days ago</span><span class="only-narrow">30 days ago</span></span><span class="rule"></span><span>Today</span></div>
+        </div>`).join('');
+      root.dataset.signature = signature;
+      state.serviceSparks = {};
+      for (const x of list) {
+        state.serviceSparks[x.id] = new C.Sparkline($(`[data-service="${x.id}"] [data-spark]`, root), { color: SERIES[1], height: 32 });
+      }
+    }
+
+    for (const x of list) {
+      const row = $(`[data-service="${x.id}"]`, root);
+      row.dataset.status = x.status;
+      $('.service-dot', row).className = `service-dot s-${x.status}`;
+      // An app without an address is "not set up" rather than "no data".
+      $('[data-pill]', row).innerHTML = x.url ? pill(x.status) : `<span class="pill s-unknown">${icon('help')}Not set up</span>`;
+      // The response figure already says how fast it answered, so only show the message when something is wrong.
+      const msg = $('[data-msg]', row);
+      msg.textContent = x.message;
+      msg.hidden = !x.url || x.status === 'operational';
+      $('[data-fig="ms"]', row).textContent = F.ms(x.responseMs);
+      $('[data-fig="uptime"]', row).textContent = F.uptime(x.uptime['30d']);
+      state.serviceSparks[x.id].update(x.trend24h || []);
+      C.renderUptimeBars($('.ubars', row), x.daily, {
+        tooltip: dayTooltip,
+        statusClass: (d) => (d.status ? `u-${d.status}` : 'u-nodata'),
+      });
+    }
   }
 
   function renderComponents() {

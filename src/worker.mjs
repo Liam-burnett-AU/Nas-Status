@@ -56,6 +56,10 @@ export class StatusMonitor extends DurableObject {
       if (!this.config.demo && isIpLiteral(new URL(this.config.nextcloud.baseUrl).hostname)) {
         throw new Error('NEXTCLOUD_URL must use a host name. Cloudflare Workers cannot fetch IP addresses directly; add a DNS record (or a Cloudflare Tunnel) and use that name.');
       }
+      const ipApp = this.config.services.find((s) => s.url && isIpLiteral(new URL(s.url).hostname));
+      if (ipApp) {
+        throw new Error(`SERVICES: "${ipApp.name}" must use a host name. Cloudflare Workers cannot fetch IP addresses directly.`);
+      }
     } catch (err) {
       this.configError = err.message;
       log('error', `Configuration error: ${err.message}`);
@@ -68,6 +72,7 @@ export class StatusMonitor extends DurableObject {
     }
     this.store = new HistoryStore({ timeZone: c.timeZone, incidentThreshold: c.incidentThreshold, pollIntervalMs: c.pollIntervalMs });
     this.client = c.demo ? new DemoClient({ timeZone: c.timeZone }) : new NextcloudClient(c.nextcloud, { timeoutMs: c.requestTimeoutMs });
+    if (c.demo) this.client.setServices(c.services);
     this.monitor = new Monitor({ config: c, store: this.store, client: this.client, log });
     this.persistence = new DurablePersistence(this.ctx.storage);
 

@@ -22,6 +22,7 @@ plain Node.js server or Docker container on your own hardware.
 - [Features](#features)
 - [How it works](#how-it-works)
 - [Deploy to Cloudflare Workers](#deploy-to-cloudflare-workers)
+- [Monitoring your other apps](#monitoring-your-other-apps)
 - [Alternative: run on your own server](#alternative-run-on-your-own-server)
 - [Configuration](#configuration)
 - [How status is decided](#how-status-is-decided)
@@ -33,6 +34,7 @@ plain Node.js server or Docker container on your own hardware.
 ## Features
 
 - **Live overall status** with an animated status orb, plus 24 h, 7 d, 30 d and 90 d availability.
+- **Your other apps too.** Every site or API you list is checked each minute and shown as up, slow or down, with response time, a 24-hour trend and 90 days of history.
 - **Four monitored components:** web and file sync, server API and database, storage, and CPU and memory.
 - **90-day uptime bars** for each component, in the style of hosted status pages. Every day has a tooltip breakdown.
 - **Interactive charts** for response time, CPU, memory, swap, free storage, active users and API latency.
@@ -203,6 +205,36 @@ share one request.
 > response times are measured from near Australia. Change the hint before the first
 > deploy if your server is elsewhere. It only applies when the object is created.
 
+## Monitoring your other apps
+
+List them under `SERVICES` in `wrangler.jsonc`. They appear in the **Applications** section and count towards the overall status at the top.
+
+```jsonc
+"SERVICES": [
+  { "name": "Logbook", "url": "https://logbook.lbdev.app", "access": true },
+  { "name": "Login API", "url": "https://login.lbdev.app/health", "expectStatus": [200] },
+  { "name": "Emailing API", "url": "" }
+]
+```
+
+| Field | Meaning |
+| --- | --- |
+| `name` | What the page calls the app. |
+| `url` | Address to check. Leave it `""` and the app shows as *Not set up* until you add one. |
+| `access` | `true` sends the Cloudflare Access service token (`CF_ACCESS_*`) to this app. Add the same token to each app's Access policy. |
+| `expectStatus` | Status codes that mean "up". By default, anything from 200 to 399 counts, including redirects to a login page. For an API, point `url` at a health endpoint, or list the codes its base address returns, for example `[200, 401, 404]`. |
+| `keyword` | Text that must appear on the page, to catch an error page served with a 200. |
+| `timeoutSeconds` / `slowMs` | Per-app overrides for the request timeout and the "slow" threshold. |
+
+How an answer is judged:
+
+- **Up:** an expected status code (and the keyword, if set) within the slow threshold.
+- **Slow:** up, but slower than `slowMs` (default `RESPONSE_DEGRADED_MS`).
+- **Down:** a timeout, a refused connection, a disconnected Cloudflare Tunnel, a Cloudflare 52x error, or an unexpected status code.
+- **No data:** Cloudflare Access, bot protection or the firewall stopped the monitor before it reached the app. This says nothing about the app itself, so it is not counted as downtime. The page names the cause.
+
+Up to 20 apps can be listed. Each check uses one request, which keeps well inside the free plan.
+
 ## Alternative: run on your own server
 
 Use this if you would rather not use Cloudflare. Steps 1 and the `curl` test above
@@ -349,7 +381,7 @@ WantedBy=multi-user.target
 | `TLS certificate not trusted` | On Node.js, self-signed certificates need `NODE_EXTRA_CA_CERTS=/path/to/ca.pem`. On Workers, use a publicly trusted certificate, which a Cloudflare Tunnel provides. TLS verification is never disabled. |
 | *Cloudflare Access is protecting Nextcloud* | Add a service token as described in step 2. |
 | *Cloudflare's bot protection challenged the monitor* | Turn off Bot Fight Mode for the domain under *Security → Bots*. |
-| *The Cloudflare Tunnel for this host is not connected (error 1033)* | Start `cloudflared` on the NAS, and check the tunnel's status in Zero Trust under *Networks → Tunnels*. |
+| *The Cloudflare Tunnel for … is not connected (error 1033)* | Start `cloudflared` on the NAS, and check the tunnel's status in Zero Trust under *Networks → Tunnels*. |
 | *Something in front of Nextcloud refused the request* | Access, a firewall rule or a reverse proxy blocked the monitor before Nextcloud saw it. `status.php` never needs a login. These checks show as *No data*, not downtime. |
 | *Something in front of the status page blocked the data request (HTTP 403)* | Cloudflare security, Cloudflare Access or a web filter blocked `/api/status`. The status page never sends a 403. Look up the Ray ID shown on the page under *Security → Events*. If Access protects the site, the page and `/api/*` need the same policy. |
 | *Cloudflare security challenged the data request* | Bot Fight Mode, "I'm Under Attack" mode or a WAF rule challenged `/api/*`. Turn Bot Fight Mode off, or add a WAF custom rule for this host and path `/api/` with the action *Skip*. |
@@ -363,7 +395,7 @@ WantedBy=multi-user.target
 ## Development
 
 ```bash
-npm test               # 58 tests: normaliser, evaluator, history store, Durable Object storage, client, check script, and end-to-end against a mock Nextcloud
+npm test               # 66 tests: normaliser, evaluator, app checks, history store, Durable Object storage, client, check script, and end-to-end against a mock Nextcloud
 npm run worker:dev     # the Worker on the real Workers runtime, locally
 npm run demo           # Node.js preview with generated data
 npm run build:preview  # single-file HTML snapshot in dist/
@@ -382,6 +414,7 @@ lib/normalise.js     raw serverinfo payload to a clean snapshot (units, -1 and f
 lib/evaluate.js      component and overall status rules
 lib/store.js         history, uptime maths, incidents, persistence
 lib/monitor.js       one monitoring round, with auth back-off
+lib/services.js      checks for the other apps in SERVICES
 lib/api.js           whitelisted public payload
 lib/demo.js          realistic generated data in serverinfo's own format
 public/              the page (HTML, CSS, dependency-free SVG charts)

@@ -156,6 +156,7 @@ async function main() {
   let persistence = null;
   if (config.demo) {
     client = new DemoClient({ timeZone: config.timeZone });
+    client.setServices(config.services);
   } else {
     client = new NextcloudClient(config.nextcloud, { timeoutMs: config.requestTimeoutMs });
     if (!client.canReadServerInfo) {
