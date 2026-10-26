@@ -27,6 +27,8 @@ async function startApp(t) {
       case '/cf522': return send(522, 'Connection timed out');
       case '/mentions-access': return send(200, 'Docs: how we use Cloudflare Access');
       case '/basic': return send(401, 'auth', { 'WWW-Authenticate': 'Basic realm="x"' });
+      case '/login': return send(405, JSON.stringify({ error: 'Method not allowed' }), { 'Content-Type': 'application/json' });
+      case '/api/send': return send(405, JSON.stringify({ error: 'Method not allowed' }), { 'Content-Type': 'application/json' });
       default: return send(500, 'boom');
     }
   });
@@ -43,7 +45,10 @@ test('parses the SERVICES list from JSON text or an array', () => {
   assert.equal(list[0].url, 'https://logbook.lbdev.app/');
   assert.equal(list[0].access, true);
   assert.equal(list[1].url, '');
-  assert.equal(parseServices([{ name: 'A', url: 'https://a.example', expectStatus: 401 }], DEFAULTS)[0].expectStatus[0], 401);
+  assert.deepEqual(parseServices([{ name: 'A', url: 'https://a.example', expectStatus: 401 }], DEFAULTS)[0].expectStatus.ranges, [[401, 401]]);
+  assert.deepEqual(parseServices([{ name: 'A', url: 'https://a.example', expectStatus: ['2xx', '300-308', 405] }], DEFAULTS)[0].expectStatus.ranges, [[200, 299], [300, 308], [405, 405]]);
+  assert.throws(() => parseServices([{ name: 'A', url: 'https://a.example', expectStatus: '6xx' }], DEFAULTS), /expectStatus/);
+  assert.throws(() => parseServices([{ name: 'A', url: 'https://a.example', expectStatus: '299-200' }], DEFAULTS), /expectStatus/);
   assert.deepEqual(parseServices(undefined, DEFAULTS), []);
   assert.throws(() => parseServices('{bad', DEFAULTS), /JSON array/);
   assert.throws(() => parseServices([{ url: 'a.example' }], DEFAULTS), /needs a name/);
@@ -121,4 +126,34 @@ test('apps feed the overall status, incidents and history', () => {
   const stats = store.serviceStats('svc-pit-wall', 86_400_000, t0 + 120_000);
   assert.equal(stats.avgMs, 85);
   assert.equal(stats.trend.length, 24);
+});
+
+test('a login API that refuses a GET is still up; a 404 or 5xx is down', async (t) => {
+  const { base } = await startApp(t);
+  const loginRules = { expectStatus: ['2xx', '3xx', 400, 401, 403, 405] };
+  assert.equal((await checkService(svc(base, '/login', loginRules))).status, STATUS.OPERATIONAL);
+  const missing = await checkService(svc(base, '/missing', loginRules));
+  assert.equal(missing.status, STATUS.MAJOR);
+  assert.match(missing.message, /HTTP 404 \(expected 2xx, 3xx, 400, 401, 403, 405\)/);
+  assert.equal((await checkService(svc(base, '/boom', loginRules))).status, STATUS.MAJOR);
+});
+
+test('relay: true checks the alert mail relay, where a 405 means up', async (t) => {
+  const { base } = await startApp(t);
+  const c = buildConfig({
+    NEXTCLOUD_URL: 'https://nas.example',
+    ALERT_EMAIL_API_URL: base,
+    SERVICES: [{ name: 'Emailing API', relay: true }],
+  });
+  const relay = c.services[0];
+  assert.equal(relay.url, `${base}/api/send`);
+  assert.equal(relay.relay, true);
+  const r = await checkService(relay);
+  assert.equal(r.status, STATUS.OPERATIONAL, r.message);
+
+  const notSet = buildConfig({ NEXTCLOUD_URL: 'https://nas.example', SERVICES: [{ name: 'Emailing API', relay: true }] }).services[0];
+  assert.equal(notSet.url, '');
+  const pending = await checkService(notSet);
+  assert.equal(pending.status, STATUS.UNKNOWN);
+  assert.match(pending.message, /ALERT_EMAIL_API_URL/);
 });

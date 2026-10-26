@@ -58,16 +58,19 @@
     // Your other apps, checked every minute alongside Nextcloud.
     //   url         address to check (leave "" until you have one: it shows as "Not set up")
     //   access      true = send the Cloudflare Access service token (CF_ACCESS_*) to this app
-    //   expectStatus  optional, e.g. 401 or [200, 404] for an API whose base address is not a page
+    //   expectStatus  optional codes that mean "up": 405, "4xx" or "200-299", alone or in a list
+    //   relay       true = check the mail relay from ALERT_EMAIL_API_URL (a 405 to GET means up)
     //   keyword     optional text that must appear on the page
     "SERVICES": [
       { "name": "Logbook", "url": "https://logbook.lbdev.app", "access": true },
-      { "name": "NAS", "url": "https://nas.lbdev.app", "access": true },
       { "name": "Pit Wall", "url": "https://pit-wall.lbdev.app", "access": true },
       { "name": "SFOS", "url": "https://sfos.lbdev.app", "access": true },
       { "name": "ShareSafe", "url": "https://sharesafe.lbdev.app", "access": true },
-      { "name": "Emailing API", "url": "" },
-      { "name": "Login API", "url": "" }
+      // The Mail Relay that sends the alert emails (address comes from ALERT_EMAIL_API_URL).
+      { "name": "Emailing API", "relay": true },
+      // A login endpoint usually refuses a plain GET (400/401/403/405): that still means it is up.
+      // A 404 or a 5xx error counts as down.
+      { "name": "Login API", "url": "https://login.lbdev.app/login", "access": true, "expectStatus": ["2xx", "3xx", 400, 401, 403, 405] }
     ]
   }
 }

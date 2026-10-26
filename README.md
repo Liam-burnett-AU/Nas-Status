@@ -214,8 +214,8 @@ List them under `SERVICES` in `wrangler.jsonc`. They appear in the **Application
 ```jsonc
 "SERVICES": [
   { "name": "Logbook", "url": "https://logbook.lbdev.app", "access": true },
-  { "name": "Login API", "url": "https://login.lbdev.app/health", "expectStatus": [200] },
-  { "name": "Emailing API", "url": "" }
+  { "name": "Login API", "url": "https://login.lbdev.app/login", "expectStatus": ["2xx", "3xx", 400, 401, 403, 405] },
+  { "name": "Emailing API", "relay": true }
 ]
 ```
 
@@ -224,7 +224,8 @@ List them under `SERVICES` in `wrangler.jsonc`. They appear in the **Application
 | `name` | What the page calls the app. |
 | `url` | Address to check. Leave it `""` and the app shows as *Not set up* until you add one. |
 | `access` | `true` sends the Cloudflare Access service token (`CF_ACCESS_*`) to this app. Add the same token to each app's Access policy. |
-| `expectStatus` | Status codes that mean "up". By default, anything from 200 to 399 counts, including redirects to a login page. For an API, point `url` at a health endpoint, or list the codes its base address returns, for example `[200, 401, 404]`. |
+| `expectStatus` | Status codes that mean "up": single codes (`405`), classes (`"4xx"`) or ranges (`"200-299"`), alone or in a list. By default, anything from 200 to 399 counts, including redirects to a login page. For an API, point `url` at a health endpoint, or list what it answers to a plain GET, for example `["2xx", 401, 405]`. |
+| `relay` | `true` checks the Mail Relay used for email alerts, at the address in `ALERT_EMAIL_API_URL`. A 405 to the GET means it is up. |
 | `keyword` | Text that must appear on the page, to catch an error page served with a 200. |
 | `timeoutSeconds` / `slowMs` | Per-app overrides for the request timeout and the "slow" threshold. |
 
@@ -264,9 +265,8 @@ Set it up:
 
 If the relay is a Worker on a **route** of the same zone, rather than a Custom Domain or `workers.dev`, Cloudflare blocks Worker-to-Worker `fetch()`. Uncomment the `MAIL_RELAY` Service Binding in `wrangler.jsonc` and put the relay Worker's name in it.
 
-**Tip:** to watch the relay itself, add it to `SERVICES` as
-`{ "name": "Emailing API", "url": "https://mail.lbdev.app/api/send", "expectStatus": [405] }`.
-The endpoint only accepts POST, so a 405 answer means it is up.
+**Tip:** to watch the relay itself, add `{ "name": "Emailing API", "relay": true }` to `SERVICES`.
+It checks the same address as `ALERT_EMAIL_API_URL`. The endpoint only accepts POST, so a 405 answer means it is up.
 
 ## Alternative: run on your own server
 
@@ -428,7 +428,7 @@ WantedBy=multi-user.target
 ## Development
 
 ```bash
-npm test               # 74 tests: normaliser, evaluator, app checks, email alerts, history store, Durable Object storage, client, check script, and end-to-end against a mock Nextcloud
+npm test               # 76 tests: normaliser, evaluator, app checks, email alerts, history store, Durable Object storage, client, check script, and end-to-end against a mock Nextcloud
 npm run worker:dev     # the Worker on the real Workers runtime, locally
 npm run demo           # Node.js preview with generated data
 npm run build:preview  # single-file HTML snapshot in dist/

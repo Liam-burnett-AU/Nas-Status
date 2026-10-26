@@ -80,6 +80,7 @@ export class StatusMonitor extends DurableObject {
     // Email alerts: through a Service Binding (MAIL_RELAY) when present, otherwise by URL.
     const a = c.alerts;
     const binding = this.env.MAIL_RELAY;
+    if (binding && !c.demo) this.client.relayFetch = (url, init) => binding.fetch(url, init);
     const alertsReady = !c.demo && Boolean((a.url || binding) && a.apiKey && a.to.length);
     if (!c.demo && (a.url || a.apiKey || a.to.length) && !alertsReady) {
       log('warn', 'Email alerts need ALERT_EMAIL_API_URL (or a MAIL_RELAY binding), ALERT_EMAIL_API_KEY and ALERT_EMAIL_TO; alerts are off.');

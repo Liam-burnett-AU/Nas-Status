@@ -466,7 +466,7 @@
               <span class="service-dot" aria-hidden="true"></span>
               <div class="service-title">
                 <div class="service-title-row"><h3>${esc(x.name)}</h3><span data-pill></span></div>
-                ${x.url ? `<a class="service-host" href="${esc(x.url)}" target="_blank" rel="noopener noreferrer">${esc(x.host)}</a>` : '<span class="service-host muted">No address set up yet</span>'}
+                ${x.url ? `<a class="service-host" href="${esc(x.url)}" target="_blank" rel="noopener noreferrer">${esc(x.host)}${esc(x.path || '')}</a>` : '<span class="service-host muted">No address set up yet</span>'}
               </div>
             </div>
             <div class="service-metrics">
