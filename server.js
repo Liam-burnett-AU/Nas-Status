@@ -16,6 +16,7 @@ const { HistoryStore } = require('./lib/store');
 const { Monitor } = require('./lib/monitor');
 const { FilePersistence } = require('./lib/persist-file');
 const { DemoClient, backfill } = require('./lib/demo');
+const { AlertManager, MailRelaySender } = require('./lib/alerts');
 const { SECURITY_HEADERS, API_MARKER, isApiPath, handleApi } = require('./lib/routes');
 
 const PUBLIC_DIR = path.join(__dirname, 'public');
@@ -164,7 +165,24 @@ async function main() {
     }
   }
 
-  const monitor = new Monitor({ config, store, client, log });
+  const a = config.alerts;
+  const alertsReady = !config.demo && Boolean(a.url && a.apiKey && a.to.length);
+  const alerts = new AlertManager({
+    alerts: a,
+    threshold: config.incidentThreshold,
+    timeZone: config.timeZone,
+    siteTitle: config.siteTitle,
+    nameOf: (id) => store.componentName(id),
+    sender: alertsReady ? new MailRelaySender({ url: a.url, apiKey: a.apiKey }) : null,
+    enabled: alertsReady,
+    log,
+  });
+  if (!config.demo && (a.url || a.apiKey || a.to.length) && !alertsReady) {
+    log('warn', 'Email alerts need ALERT_EMAIL_API_URL, ALERT_EMAIL_API_KEY and ALERT_EMAIL_TO together; alerts are off.');
+  } else if (alertsReady) {
+    log('info', `Email alerts on: ${a.to.length} recipient${a.to.length === 1 ? '' : 's'}.`);
+  }
+  const monitor = new Monitor({ config, store, client, log, alerts });
 
   if (config.demo) {
     log('info', 'DEMO_MODE is on: generating 90 days of sample history...');

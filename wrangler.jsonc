@@ -24,6 +24,11 @@
 
   "observability": { "enabled": true },
 
+  // Optional: if the Mail Relay Worker is on a route of the same zone (not a
+  // Custom Domain or workers.dev), call it through a Service Binding instead of
+  // by URL. Uncomment and use the relay Worker's name:
+  // "services": [{ "binding": "MAIL_RELAY", "service": "mail-relay" }],
+
   // Non-secret settings. Secrets (NEXTCLOUD_TOKEN, NEXTCLOUD_APP_PASSWORD,
   // CF_ACCESS_CLIENT_SECRET) go in with `npx wrangler secret put <NAME>`.
   "vars": {
@@ -40,6 +45,15 @@
     // "oc" = Oceania. Only applies when the Durable Object is first created.
     "DO_LOCATION_HINT": "oc",
     "DEMO_MODE": "false",
+
+    // Email alerts when Nextcloud or any app goes down, and when it is back.
+    // Also set the secrets ALERT_EMAIL_API_KEY (the relay's SEND_EMAIL_API_KEY)
+    // and ALERT_EMAIL_TO (your address) with `npx wrangler secret put`.
+    "ALERT_EMAIL_API_URL": "",
+    "ALERT_FROM_NAME": "NAS Status",
+    "ALERT_ON_RECOVERY": "true",
+    // Linked from the emails. Your status page address, e.g. https://status.lbdev.app
+    "STATUS_PAGE_URL": "",
 
     // Your other apps, checked every minute alongside Nextcloud.
     //   url         address to check (leave "" until you have one: it shows as "Not set up")

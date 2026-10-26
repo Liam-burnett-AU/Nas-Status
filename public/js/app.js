@@ -285,6 +285,10 @@
         const stale = s.monitor.infoAt ? ` Figures below are from the last successful report at ${esc(F.dateTime(s.monitor.infoAt))}.` : '';
         out.push(banner('warning', 'alert', `<strong>Monitoring API:</strong> ${esc(s.monitor.apiError)}.${stale}`));
       }
+      const al = s.monitor.alerts;
+      if (al && al.enabled && al.lastError) {
+        out.push(banner('warning', 'alert', `<strong>Email alerts are not getting through.</strong> ${esc(al.lastError)}.${al.queued ? ` ${al.queued} waiting to be sent.` : ''}`));
+      }
       const last = s.monitor.lastCheckAt;
       if (!STATIC && last && Date.now() - last > s.monitor.pollIntervalMs * 3) {
         out.push(banner('warning', 'clock', `<strong>The monitor looks stalled.</strong> No check has completed since ${esc(F.dateTime(last))}.`));

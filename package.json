@@ -18,7 +18,8 @@
     "worker:dev": "wrangler dev",
     "worker:deploy": "wrangler deploy",
     "worker:tail": "wrangler tail",
-    "check": "node scripts/check-nextcloud.js"
+    "check": "node scripts/check-nextcloud.js",
+    "alert:test": "node scripts/send-test-alert.js"
   },
   "devDependencies": {
     "wrangler": "4.149.0"

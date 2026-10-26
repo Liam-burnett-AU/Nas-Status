@@ -23,6 +23,7 @@ plain Node.js server or Docker container on your own hardware.
 - [How it works](#how-it-works)
 - [Deploy to Cloudflare Workers](#deploy-to-cloudflare-workers)
 - [Monitoring your other apps](#monitoring-your-other-apps)
+- [Email alerts](#email-alerts)
 - [Alternative: run on your own server](#alternative-run-on-your-own-server)
 - [Configuration](#configuration)
 - [How status is decided](#how-status-is-decided)
@@ -34,6 +35,7 @@ plain Node.js server or Docker container on your own hardware.
 ## Features
 
 - **Live overall status** with an animated status orb, plus 24 h, 7 d, 30 d and 90 d availability.
+- **Email alerts.** A message when Nextcloud or any app goes down, and another when it is back, through your Mail Relay.
 - **Your other apps too.** Every site or API you list is checked each minute and shown as up, slow or down, with response time, a 24-hour trend and 90 days of history.
 - **Four monitored components:** web and file sync, server API and database, storage, and CPU and memory.
 - **90-day uptime bars** for each component, in the style of hosted status pages. Every day has a tooltip breakdown.
@@ -235,6 +237,37 @@ How an answer is judged:
 
 Up to 20 apps can be listed. Each check uses one request, which keeps well inside the free plan.
 
+## Email alerts
+
+NAS Status emails you through the Mail Relay Worker's `POST /api/send` endpoint:
+
+- **A "down" email** after something fails 2 checks in a row, about 2 minutes. This is `INCIDENT_THRESHOLD`, which ignores one-off blips.
+- **A "back up" email** after it passes 2 checks in a row, saying how long it was down. Set `ALERT_ON_RECOVERY` to `"false"` to skip these.
+- **One email per check.** Several things going down at once arrive together.
+- **No false alarms.** *No data* (for example a Cloudflare Access block) and maintenance never send an email.
+- **Retries.** If the relay fails, the email is retried on the next checks, for up to 6 attempts within 24 hours.
+- **A cap.** At most 20 emails go out per hour. The status page shows a banner if alerts are not getting through.
+
+Set it up:
+
+1. In `wrangler.jsonc`, set `ALERT_EMAIL_API_URL` to the relay's address, for example `https://mail.lbdev.app`. `/api/send` is added for you. Also set `STATUS_PAGE_URL` so the emails link to this page.
+2. Add the two secrets:
+   ```bash
+   npx wrangler secret put ALERT_EMAIL_API_KEY   # the relay's SEND_EMAIL_API_KEY
+   npx wrangler secret put ALERT_EMAIL_TO        # your address; separate several with commas (up to 10)
+   npm run worker:deploy
+   ```
+3. Send yourself a test from your computer. Put the same three values in `.env`, then run:
+   ```bash
+   npm run alert:test
+   ```
+
+If the relay is a Worker on a **route** of the same zone, rather than a Custom Domain or `workers.dev`, Cloudflare blocks Worker-to-Worker `fetch()`. Uncomment the `MAIL_RELAY` Service Binding in `wrangler.jsonc` and put the relay Worker's name in it.
+
+**Tip:** to watch the relay itself, add it to `SERVICES` as
+`{ "name": "Emailing API", "url": "https://mail.lbdev.app/api/send", "expectStatus": [405] }`.
+The endpoint only accepts POST, so a 405 answer means it is up.
+
 ## Alternative: run on your own server
 
 Use this if you would rather not use Cloudflare. Steps 1 and the `curl` test above
@@ -395,7 +428,7 @@ WantedBy=multi-user.target
 ## Development
 
 ```bash
-npm test               # 66 tests: normaliser, evaluator, app checks, history store, Durable Object storage, client, check script, and end-to-end against a mock Nextcloud
+npm test               # 74 tests: normaliser, evaluator, app checks, email alerts, history store, Durable Object storage, client, check script, and end-to-end against a mock Nextcloud
 npm run worker:dev     # the Worker on the real Workers runtime, locally
 npm run demo           # Node.js preview with generated data
 npm run build:preview  # single-file HTML snapshot in dist/
@@ -415,6 +448,7 @@ lib/evaluate.js      component and overall status rules
 lib/store.js         history, uptime maths, incidents, persistence
 lib/monitor.js       one monitoring round, with auth back-off
 lib/services.js      checks for the other apps in SERVICES
+lib/alerts.js        down/back-up emails through the Mail Relay
 lib/api.js           whitelisted public payload
 lib/demo.js          realistic generated data in serverinfo's own format
 public/              the page (HTML, CSS, dependency-free SVG charts)

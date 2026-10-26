@@ -14,6 +14,7 @@ import { Monitor } from '../lib/monitor.js';
 import { DemoClient, backfill } from '../lib/demo.js';
 import { SECURITY_HEADERS, API_MARKER, isApiPath, handleApi } from '../lib/routes.js';
 import { DurablePersistence } from './durable-storage.mjs';
+import { AlertManager, MailRelaySender } from '../lib/alerts.js';
 
 const OBJECT_NAME = 'primary';
 const EDGE_CACHE_MS = 5_000;
@@ -56,6 +57,9 @@ export class StatusMonitor extends DurableObject {
       if (!this.config.demo && isIpLiteral(new URL(this.config.nextcloud.baseUrl).hostname)) {
         throw new Error('NEXTCLOUD_URL must use a host name. Cloudflare Workers cannot fetch IP addresses directly; add a DNS record (or a Cloudflare Tunnel) and use that name.');
       }
+      if (this.config.alerts.url && isIpLiteral(new URL(this.config.alerts.url).hostname)) {
+        throw new Error('ALERT_EMAIL_API_URL must use a host name. Cloudflare Workers cannot fetch IP addresses directly.');
+      }
       const ipApp = this.config.services.find((s) => s.url && isIpLiteral(new URL(s.url).hostname));
       if (ipApp) {
         throw new Error(`SERVICES: "${ipApp.name}" must use a host name. Cloudflare Workers cannot fetch IP addresses directly.`);
@@ -73,7 +77,26 @@ export class StatusMonitor extends DurableObject {
     this.store = new HistoryStore({ timeZone: c.timeZone, incidentThreshold: c.incidentThreshold, pollIntervalMs: c.pollIntervalMs });
     this.client = c.demo ? new DemoClient({ timeZone: c.timeZone }) : new NextcloudClient(c.nextcloud, { timeoutMs: c.requestTimeoutMs });
     if (c.demo) this.client.setServices(c.services);
-    this.monitor = new Monitor({ config: c, store: this.store, client: this.client, log });
+    // Email alerts: through a Service Binding (MAIL_RELAY) when present, otherwise by URL.
+    const a = c.alerts;
+    const binding = this.env.MAIL_RELAY;
+    const alertsReady = !c.demo && Boolean((a.url || binding) && a.apiKey && a.to.length);
+    if (!c.demo && (a.url || a.apiKey || a.to.length) && !alertsReady) {
+      log('warn', 'Email alerts need ALERT_EMAIL_API_URL (or a MAIL_RELAY binding), ALERT_EMAIL_API_KEY and ALERT_EMAIL_TO; alerts are off.');
+    }
+    const alerts = new AlertManager({
+      alerts: a,
+      threshold: c.incidentThreshold,
+      timeZone: c.timeZone,
+      siteTitle: c.siteTitle,
+      nameOf: (id) => this.store.componentName(id),
+      sender: alertsReady
+        ? new MailRelaySender({ url: a.url, apiKey: a.apiKey, fetchImpl: binding ? (url, init) => binding.fetch(url, init) : undefined })
+        : null,
+      enabled: alertsReady,
+      log,
+    });
+    this.monitor = new Monitor({ config: c, store: this.store, client: this.client, log, alerts });
     this.persistence = new DurablePersistence(this.ctx.storage);
 
     const loaded = await this.persistence.load(this.store, this.monitor);
